@@ -120,9 +120,12 @@ jobs:
           pnpm run prebuild ${{ matrix.target }}
 
       - name: Tauri build
+        shell: bash
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: pnpm build --target ${{ matrix.target }} --config '{"bundle":{"createUpdaterArtifacts":false}}'
+        run: |
+          printf '{"bundle":{"createUpdaterArtifacts":false}}\n' > tauri.no-updater.conf.json
+          pnpm build --target ${{ matrix.target }} --config tauri.no-updater.conf.json
 
       - name: Collect installer artifacts
         shell: bash
