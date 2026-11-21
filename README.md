@@ -29,10 +29,12 @@ A Clash Meta GUI based on <a href="https://github.com/tauri-apps/tauri">Tauri</a
 
 ## Install
 
-请到发布页面下载对应的安装包：[Release page](https://github.com/clash-verge-rev/clash-verge-rev/releases)<br>
-Go to the [Release page](https://github.com/clash-verge-rev/clash-verge-rev/releases) to download the corresponding installation package<br>
-Supports Windows (x64/x86), Linux (x64/arm64) and macOS 11+ (intel/apple).
-支持 Windows (x64/x86)、Linux (x64/arm64) 和 macOS 11+ (intel/apple)。
+请到本仓库自建发布页下载对应的安装包：[https://clash.wangp.org](https://clash.wangp.org)<br>
+Download installers from the mirror page: [https://clash.wangp.org](https://clash.wangp.org)<br>
+Supports Windows (x64), Linux (x64) and macOS 11+ (Apple Silicon / Intel).
+支持 Windows (x64)、Linux (x64) 和 macOS 11+ (Apple Silicon / Intel)。
+
+> 上游原版发布页：[clash-verge-rev/clash-verge-rev Releases](https://github.com/clash-verge-rev/clash-verge-rev/releases)
 
 #### 我应当怎样选择发行版
 
