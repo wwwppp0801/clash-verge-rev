@@ -1,0 +1,233 @@
+name: Release to Cloudflare R2
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version/tag (defaults to v<package.json version> or dev-<short-sha>)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
+  HUSKY: 0
+
+concurrency:
+  group: release-r2-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Resolve Release Metadata
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+      build_time: ${{ steps.meta.outputs.build_time }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Determine release tag and version
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${{ github.ref_name }}"
+          elif [ -n "${{ inputs.version }}" ]; then
+            TAG="${{ inputs.version }}"
+          else
+            PKG_VERSION="$(node -p "require('./package.json').version || ''" 2>/dev/null || true)"
+            if [ -n "$PKG_VERSION" ]; then
+              TAG="v${PKG_VERSION}"
+            else
+              SHORT_SHA="$(git rev-parse --short HEAD)"
+              TAG="dev-${SHORT_SHA}"
+            fi
+          fi
+          VERSION="${TAG#v}"
+          BUILD_TIME="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "build_time=${BUILD_TIME}" >> "$GITHUB_OUTPUT"
+          echo "Resolved release tag=${TAG}, version=${VERSION}, build_time=${BUILD_TIME}"
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: [prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.100.0'
+          targets: ${{ matrix.target }}
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: 'v1-rust'
+          shared-key: 'rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
+          workspaces: |
+            . -> target
+          cache-all-crates: true
+          cache-workspace-crates: true
+
+      - name: Install dependencies (ubuntu only)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26.13.1'
+          cache: 'pnpm'
+
+      - name: Pnpm install and prebuild
+        run: |
+          pnpm i
+          pnpm run prebuild ${{ matrix.target }}
+
+      - name: Tauri build
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm build --target ${{ matrix.target }}
+
+      - name: Collect installer artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist-artifacts
+          for base in "target/${{ matrix.target }}/release/bundle" "src-tauri/target/${{ matrix.target }}/release/bundle"; do
+            if [ -d "$base" ]; then
+              find "$base" -type f \( \
+                -name '*.exe' -o \
+                -name '*.msi' -o \
+                -name '*.dmg' -o \
+                -name '*.deb' -o \
+                -name '*.rpm' -o \
+                -name '*.AppImage' \
+              \) -exec cp -v {} dist-artifacts/ \;
+            fi
+          done
+          ls -la dist-artifacts
+          if [ -z "$(ls -A dist-artifacts)" ]; then
+            echo "::error::No installer artifacts found for ${{ matrix.target }}"
+            exit 1
+          fi
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.target }}
+          path: dist-artifacts/*
+          if-no-files-found: error
+
+  publish-r2:
+    name: Publish to Cloudflare R2
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_TIME: ${{ needs.prepare.outputs.build_time }}
+      R2_BUCKET: clash-verge-rev
+      R2_BASE_URL: https://clash.wangp.org
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26.13.1'
+
+      - name: Download installer artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: installers-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Compute SHA256 checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd artifacts && sha256sum * > SHA256SUMS.txt)
+          cat artifacts/SHA256SUMS.txt
+
+      - name: Generate R2 index.html and releases.json
+        run: |
+          node scripts-workflow/generate-r2-index.mjs \
+            --artifacts-dir artifacts \
+            --out-dir site \
+            --tag "$RELEASE_TAG" \
+            --version "$RELEASE_VERSION" \
+            --base-url "$R2_BASE_URL" \
+            --build-time "$BUILD_TIME"
+
+      - name: Upload artifacts and index to Cloudflare R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in artifacts/*; do
+            [ -f "$file" ] || continue
+            filename="$(basename "$file")"
+            echo "Uploading ${filename} -> ${R2_BUCKET}/releases/${RELEASE_TAG}/${filename}"
+            npx --yes wrangler r2 object put "${R2_BUCKET}/releases/${RELEASE_TAG}/${filename}" \
+              --file "$file" \
+              --remote
+          done
+
+          echo "Uploading index.html -> ${R2_BUCKET}/index.html"
+          npx --yes wrangler r2 object put "${R2_BUCKET}/index.html" \
+            --file site/index.html \
+            --content-type "text/html; charset=utf-8" \
+            --remote
+
+          echo "Uploading releases.json -> ${R2_BUCKET}/releases.json"
+          npx --yes wrangler r2 object put "${R2_BUCKET}/releases.json" \
+            --file site/releases.json \
+            --content-type "application/json" \
+            --remote

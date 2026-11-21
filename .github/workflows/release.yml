@@ -4,10 +4,10 @@ on:
   pull_request:
     types: [edited]
     branches: [main]
-  push:
-    # -rc tag 时预览发布, 跳过 telegram 通知、跳过 winget 提交、跳过 latest.json 文件更新
-    tags:
-      - 'v*.*.*'
+  # Disabled: v*.*.* tag pushes are now handled by release-r2.yml (Cloudflare R2).
+  # push:
+  #   tags:
+  #     - 'v*.*.*'
 permissions: write-all
 env:
   CARGO_INCREMENTAL: 0
