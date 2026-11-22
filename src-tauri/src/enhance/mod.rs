@@ -18,7 +18,7 @@ use crate::config::dns::{DnsOverrideState, dns_override_source};
 use crate::core::handle::Handle;
 use crate::utils::dirs;
 use crate::{
-    config::{Config, IProfiles, IVerge, PrfItem},
+    config::{AppRoutingRule, Config, IProfiles, IVerge, PrfItem},
     constants,
     utils::tmpl,
 };
@@ -43,6 +43,7 @@ struct ConfigValues {
     enable_dns_settings: bool,
     dns_override_confirmation: Option<String>,
     enable_external_controller: bool,
+    app_routing: Vec<AppRoutingRule>,
     #[cfg(not(target_os = "windows"))]
     redir_enabled: bool,
     #[cfg(target_os = "linux")]
@@ -128,9 +129,11 @@ async fn get_config_values(profile_uid: &str) -> ConfigValues {
         ref verge_socks_enabled,
         ref verge_http_enabled,
         ref enable_external_controller,
+        ref app_routing,
         ..
     } = **verge_arc;
     let enable_external_controller = enable_external_controller.unwrap_or(false);
+    let app_routing = app_routing.clone().unwrap_or_default();
     let dns_settings = verge_arc.dns_settings_for(profile_uid);
     let dns_override_confirmation = dns_settings.confirmation;
 
@@ -160,6 +163,7 @@ async fn get_config_values(profile_uid: &str) -> ConfigValues {
         enable_dns_settings,
         dns_override_confirmation,
         enable_external_controller,
+        app_routing,
         #[cfg(not(target_os = "windows"))]
         redir_enabled,
         #[cfg(target_os = "linux")]
@@ -843,6 +847,72 @@ async fn apply_dns_settings(config: Mapping, enable_dns_settings: bool) -> (Mapp
     (config, Mapping::new())
 }
 
+fn escape_regex_meta(input: &str) -> std::string::String {
+    let mut escaped = std::string::String::with_capacity(input.len() + 8);
+    for ch in input.chars() {
+        if matches!(
+            ch,
+            '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']' | '{' | '}' | '^' | '$'
+        ) {
+            escaped.push('\\');
+        }
+        escaped.push(ch);
+    }
+    escaped
+}
+
+fn apply_app_routing(mut config: Mapping, app_routing: &[AppRoutingRule]) -> Mapping {
+    let mut generated: Vec<Value> = Vec::new();
+    for rule in app_routing {
+        if !rule.enabled {
+            continue;
+        }
+        let path = rule.path.trim();
+        let policy = rule.policy.trim();
+        if path.is_empty()
+            || policy.is_empty()
+            || path.contains([',', '\n', '\r'])
+            || policy.contains([',', '\n', '\r'])
+        {
+            continue;
+        }
+
+        let rule_str = if path.ends_with(".app") {
+            let escaped = escape_regex_meta(path);
+            format!("PROCESS-PATH-REGEX,^{escaped}/Contents/,{policy}")
+        } else {
+            format!("PROCESS-PATH,{path},{policy}")
+        };
+        generated.push(Value::String(rule_str));
+    }
+
+    if generated.is_empty() {
+        return config;
+    }
+
+    let rules_key = Value::from("rules");
+    match config.get_mut(&rules_key) {
+        Some(Value::Sequence(existing)) => {
+            generated.append(existing);
+            *existing = generated;
+        }
+        _ => {
+            config.insert(rules_key, Value::Sequence(generated));
+        }
+    }
+
+    let mode_key = Value::from("find-process-mode");
+    let needs_strict = match config.get(&mode_key).and_then(|v| v.as_str()) {
+        None => true,
+        Some(mode) => mode.eq_ignore_ascii_case("off"),
+    };
+    if needs_strict {
+        config.insert(mode_key, Value::from("strict"));
+    }
+
+    config
+}
+
 /// Returns the enhanced profile, its original keys, script logs, and DNS override decision.
 pub async fn enhance(
     profiles: &IProfiles,
@@ -858,6 +928,7 @@ pub async fn enhance(
         enable_dns_settings,
         dns_override_confirmation,
         enable_external_controller,
+        app_routing,
         #[cfg(not(target_os = "windows"))]
         redir_enabled,
         #[cfg(target_os = "linux")]
@@ -932,6 +1003,7 @@ pub async fn enhance(
     let config = authoritative.enforce(config);
     let config = ensure_tun_default_mtu(config);
     let config = ensure_lan_bind_address(config);
+    let config = apply_app_routing(config, &app_routing);
 
     let config = cleanup_proxy_groups(config);
     let config = use_sort(config);

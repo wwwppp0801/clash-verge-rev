@@ -15,6 +15,7 @@ pub fn builder() -> tauri_specta::Builder<tauri::Wry> {
             cmd::open_app_dir,
             cmd::open_logs_dir,
             cmd::open_core_dir,
+            cmd::list_installed_apps,
             cmd::get_network_interfaces,
             cmd::get_system_hostname,
             cmd::restart_app,

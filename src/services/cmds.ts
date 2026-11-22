@@ -204,6 +204,10 @@ export async function patchVergeConfig(payload: IVergeConfig) {
   return commands.patchVergeConfig(payload)
 }
 
+export async function listInstalledApps(): Promise<IInstalledApp[]> {
+  return commands.listInstalledApps()
+}
+
 export async function setDnsOverride(
   profileUid: string,
   enabled: boolean,

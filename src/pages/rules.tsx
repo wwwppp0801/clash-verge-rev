@@ -1,5 +1,5 @@
-import { AddOutlined } from '@mui/icons-material'
-import { Box, Button } from '@mui/material'
+import { AddOutlined, AppsOutlined } from '@mui/icons-material'
+import { Badge, Box, Button } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -12,11 +12,13 @@ import {
   type VirtualListHandle,
 } from '@/components/base'
 import { ScrollTopButton } from '@/components/layout/scroll-top-button'
+import { AppRoutingDialog } from '@/components/rule/app-routing-dialog'
 import { ProviderButton } from '@/components/rule/provider-button'
 import { RuleFormDialog } from '@/components/rule/rule-form-dialog'
 import RuleItem from '@/components/rule/rule-item'
 import { usePageSearch } from '@/hooks/use-page-search'
 import { useProfiles } from '@/hooks/use-profiles'
+import { useVerge } from '@/hooks/use-verge'
 import { useVisibility } from '@/hooks/use-visibility'
 import { useAppRefreshers, useRulesData } from '@/providers/app-data-context'
 import {
@@ -26,6 +28,7 @@ import {
 } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
+import getSystem from '@/utils/get-system'
 import {
   BUILTIN_PROXY_POLICIES,
   type ParsedProfileRule,
@@ -44,6 +47,7 @@ const RulesPage = () => {
   const { rules = [] } = useRulesData()
   const { refreshRules, refreshRuleProviders } = useAppRefreshers()
   const { profiles } = useProfiles()
+  const { verge } = useVerge()
   const { searchState, match, onSearch } = usePageSearch('rules')
   const virtuosoRef = useRef<VirtualListHandle>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -66,6 +70,14 @@ const RulesPage = () => {
   const [saving, setSaving] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingRule, setEditingRule] = useState<ParsedProfileRule | null>(null)
+  const [appRoutingOpen, setAppRoutingOpen] = useState(false)
+
+  const enabledAppRoutingCount = useMemo(
+    () => (verge?.app_routing ?? []).filter((r) => r.enabled).length,
+    [verge?.app_routing],
+  )
+  const showAppRouting =
+    getSystem() === 'macos' || (verge?.app_routing?.length ?? 0) > 0
 
   // 页面可见时刷新规则数据：挂载时可见或从隐藏恢复可见各触发一次
   useEffect(() => {
@@ -245,6 +257,22 @@ const RulesPage = () => {
           >
             {t('rules.page.actions.addRule')}
           </Button>
+          {showAppRouting && (
+            <Badge
+              badgeContent={enabledAppRoutingCount}
+              color="primary"
+              invisible={enabledAppRoutingCount === 0}
+            >
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AppsOutlined />}
+                onClick={() => setAppRoutingOpen(true)}
+              >
+                {t('rules.page.actions.appRouting')}
+              </Button>
+            </Badge>
+          )}
           <ProviderButton />
         </Box>
       }
@@ -309,6 +337,15 @@ const RulesPage = () => {
           saving={saving}
           onClose={closeDialog}
           onSubmit={handleSubmitRule}
+        />
+      )}
+
+      {appRoutingOpen && (
+        <AppRoutingDialog
+          open={appRoutingOpen}
+          policyOptions={policyOptions}
+          onClose={() => setAppRoutingOpen(false)}
+          onSaved={refreshRules}
         />
       )}
     </BasePage>

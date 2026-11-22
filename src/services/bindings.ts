@@ -19,6 +19,10 @@ export const commands = {
   openAppDir: () => __TAURI_INVOKE<null>('open_app_dir'),
   openLogsDir: () => __TAURI_INVOKE<null>('open_logs_dir'),
   openCoreDir: () => __TAURI_INVOKE<null>('open_core_dir'),
+  listInstalledApps: () =>
+    __TAURI_INVOKE<{ name: string; path: string; bundle_id?: string | null }[]>(
+      'list_installed_apps',
+    ),
   getNetworkInterfaces: () =>
     __TAURI_INVOKE<string[]>('get_network_interfaces'),
   getSystemHostname: () => __TAURI_INVOKE<string>('get_system_hostname'),

@@ -670,6 +670,9 @@ export interface TranslationResources {
     rules: {
       feedback: {
         notifications: {
+          appRouting: {
+            saved: string
+          }
           crud: {
             ruleAdded: string
             ruleDeleted: string
@@ -685,6 +688,22 @@ export interface TranslationResources {
         }
       }
       modals: {
+        appRouting: {
+          customPath: {
+            add: string
+            placeholder: string
+          }
+          empty: string
+          filters: {
+            all: string
+            configured: string
+          }
+          info: string
+          loading: string
+          policyPlaceholder: string
+          searchPlaceholder: string
+          title: string
+        }
         editor: {
           form: {
             actions: {
@@ -760,6 +779,7 @@ export interface TranslationResources {
       page: {
         actions: {
           addRule: string
+          appRouting: string
           deleteRule: string
           editRule: string
         }

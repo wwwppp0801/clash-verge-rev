@@ -11,7 +11,8 @@
     "actions": {
       "addRule": "Add Rule",
       "editRule": "Edit Rule",
-      "deleteRule": "Delete Rule"
+      "deleteRule": "Delete Rule",
+      "appRouting": "App Routing"
     },
     "title": "Aturan"
   },
@@ -21,6 +22,9 @@
         "ruleAdded": "Rule added",
         "ruleUpdated": "Rule updated",
         "ruleDeleted": "Rule deleted"
+      },
+      "appRouting": {
+        "saved": "App routing rules saved"
       },
       "provider": {
         "updateSuccess": "{{name}} updated successfully",
@@ -102,6 +106,22 @@
         "payloadRequired": "Rule content is required",
         "proxyRequired": "Proxy policy is required"
       }
+    },
+    "appRouting": {
+      "title": "App Routing",
+      "info": "Enable TUN mode for full app and UDP coverage. Rules are automatically prepended with highest priority (find-process-mode: strict). Note: macOS system-forwarded apps (such as Safari and App Store) may not match by process path.",
+      "searchPlaceholder": "Search apps by name or path...",
+      "filters": {
+        "all": "All",
+        "configured": "Configured"
+      },
+      "customPath": {
+        "placeholder": "Custom app path (e.g. /opt/homebrew/bin/curl or /path/to/My.app)",
+        "add": "Add Path"
+      },
+      "policyPlaceholder": "Select policy",
+      "empty": "No matching applications",
+      "loading": "Scanning installed applications..."
     }
   }
 }

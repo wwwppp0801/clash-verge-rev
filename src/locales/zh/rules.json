@@ -11,7 +11,8 @@
     "actions": {
       "addRule": "添加规则",
       "editRule": "编辑规则",
-      "deleteRule": "删除规则"
+      "deleteRule": "删除规则",
+      "appRouting": "分应用代理"
     },
     "title": "规则"
   },
@@ -21,6 +22,9 @@
         "ruleAdded": "规则已添加",
         "ruleUpdated": "规则已更新",
         "ruleDeleted": "规则已删除"
+      },
+      "appRouting": {
+        "saved": "分应用代理规则已保存"
       },
       "provider": {
         "updateSuccess": "{{name}} 更新成功",
@@ -102,6 +106,22 @@
         "payloadRequired": "请输入规则内容",
         "proxyRequired": "请选择或输入代理策略"
       }
+    },
+    "appRouting": {
+      "title": "分应用代理",
+      "info": "建议开启 TUN 模式以获得完整的应用及 UDP 代理覆盖。规则会自动以最高优先级前置注入，并自动启用 find-process-mode: strict。注意：部分 macOS 系统转发应用（如 Safari、App Store）可能无法按进程路径匹配。",
+      "searchPlaceholder": "按应用名称或路径搜索...",
+      "filters": {
+        "all": "全部",
+        "configured": "已配置"
+      },
+      "customPath": {
+        "placeholder": "自定义应用路径（如 /opt/homebrew/bin/curl 或 /path/to/My.app）",
+        "add": "添加路径"
+      },
+      "policyPlaceholder": "选择策略",
+      "empty": "未找到匹配的应用",
+      "loading": "正在扫描已安装的应用..."
     }
   }
 }

@@ -10,6 +10,21 @@ use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 use tristr::alias::String;
 
+const fn default_true() -> bool {
+    true
+}
+
+#[derive(Default, Debug, Clone, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
+pub struct AppRoutingRule {
+    pub name: String,
+    pub path: String,
+    pub policy: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bundle_id: Option<String>,
+}
+
 /// ### `verge.yaml` schema
 #[derive(Default, Debug, Clone, Deserialize, Serialize, specta::Type)]
 #[serde(default)]
@@ -198,6 +213,9 @@ pub struct IVerge {
 
     /// 自动进入轻量模式的延迟（分钟）
     pub auto_light_weight_minutes: Option<u64>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_routing: Option<Vec<AppRoutingRule>>,
 
     pub enable_hover_jump_navigator: Option<bool>,
 
@@ -485,6 +503,7 @@ impl IVerge {
         patch_opt_field!(self, patch, enable_dns_settings);
         patch_opt_field!(self, patch, home_cards);
         patch_opt_field!(self, patch, enable_external_controller);
+        patch_opt_field!(self, patch, app_routing);
     }
 
     pub fn get_log_level(&self) -> LevelFilter {
