@@ -134,40 +134,81 @@ jobs:
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
           BUILD_VERSION: ${{ needs.prepare.outputs.version }}
+          TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
+          if [ -z "${TAURI_UPDATER_PUBLIC_KEY}" ]; then
+            echo "::error::Missing repository variable TAURI_UPDATER_PUBLIC_KEY"
+            exit 1
+          fi
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY}" ]; then
+            echo "::error::Missing repository secret TAURI_SIGNING_PRIVATE_KEY"
+            exit 1
+          fi
           node -e '
             const fs = require("fs");
             const v = process.env.BUILD_VERSION;
+            const pubkey = process.env.TAURI_UPDATER_PUBLIC_KEY.trim();
             const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
             pkg.version = v;
             fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
-            fs.writeFileSync("tauri.no-updater.conf.json", JSON.stringify({
+            fs.writeFileSync("tauri.r2-updater.conf.json", JSON.stringify({
               version: v,
-              bundle: { createUpdaterArtifacts: false }
-            }) + "\n");
+              bundle: { createUpdaterArtifacts: true },
+              plugins: {
+                updater: {
+                  pubkey,
+                  endpoints: ["https://clash.wangp.org/updater/latest.json"]
+                }
+              }
+            }, null, 2) + "\n");
           '
-          pnpm build --target ${{ matrix.target }} --config tauri.no-updater.conf.json
+          pnpm build --target ${{ matrix.target }} --config tauri.r2-updater.conf.json
 
-      - name: Collect installer artifacts
+      - name: Collect installer and updater artifacts
         shell: bash
+        env:
+          BUILD_VERSION: ${{ needs.prepare.outputs.version }}
+          BUILD_TARGET: ${{ matrix.target }}
         run: |
           set -euo pipefail
           mkdir -p dist-artifacts
-          for base in "target/${{ matrix.target }}/release/bundle" "src-tauri/target/${{ matrix.target }}/release/bundle"; do
+          for base in "target/${BUILD_TARGET}/release/bundle" "src-tauri/target/${BUILD_TARGET}/release/bundle"; do
             if [ -d "$base" ]; then
               find "$base" -type f \( \
                 -name '*.exe' -o \
+                -name '*.exe.sig' -o \
                 -name '*.msi' -o \
                 -name '*.dmg' -o \
                 -name '*.deb' -o \
+                -name '*.deb.sig' -o \
                 -name '*.rpm' -o \
-                -name '*.AppImage' \
+                -name '*.rpm.sig' -o \
+                -name '*.AppImage' -o \
+                -name '*.AppImage.sig' \
               \) -exec cp -v {} dist-artifacts/ \;
+
+              # Normalize macOS updater archive names with target arch so multi-arch builds do not collide.
+              while IFS= read -r -d '' file; do
+                fname="$(basename "$file")"
+                case "$BUILD_TARGET" in
+                  aarch64-apple-darwin) arch="aarch64" ;;
+                  x86_64-apple-darwin) arch="x64" ;;
+                  *) arch="$BUILD_TARGET" ;;
+                esac
+                if [[ "$fname" == *.app.tar.gz.sig ]]; then
+                  cp -v "$file" "dist-artifacts/Clash.Verge_${BUILD_VERSION}_${arch}.app.tar.gz.sig"
+                elif [[ "$fname" == *.app.tar.gz ]]; then
+                  cp -v "$file" "dist-artifacts/Clash.Verge_${BUILD_VERSION}_${arch}.app.tar.gz"
+                fi
+              done < <(find "$base" -type f \( -name '*.app.tar.gz' -o -name '*.app.tar.gz.sig' \) -print0)
             fi
           done
           ls -la dist-artifacts
           if [ -z "$(ls -A dist-artifacts)" ]; then
-            echo "::error::No installer artifacts found for ${{ matrix.target }}"
+            echo "::error::No installer artifacts found for ${BUILD_TARGET}"
             exit 1
           fi
 
@@ -213,8 +254,10 @@ jobs:
           (cd artifacts && sha256sum * > SHA256SUMS.txt)
           cat artifacts/SHA256SUMS.txt
 
-      - name: Generate R2 index.html and releases.json
+      - name: Generate R2 index.html, releases.json, and updater/latest.json
+        shell: bash
         run: |
+          set -euo pipefail
           node scripts-workflow/generate-r2-index.mjs \
             --artifacts-dir artifacts \
             --out-dir site \
@@ -223,7 +266,23 @@ jobs:
             --base-url "$R2_BASE_URL" \
             --build-time "$BUILD_TIME"
 
-      - name: Upload artifacts and index to Cloudflare R2
+          EXISTING_MANIFEST=""
+          if curl -fsSL "${R2_BASE_URL}/updater/latest.json?t=$(date +%s)" -o existing-latest.json; then
+            EXISTING_MANIFEST="existing-latest.json"
+          else
+            rm -f existing-latest.json
+          fi
+
+          node scripts-workflow/generate-r2-updater-manifest.mjs \
+            --artifacts-dir artifacts \
+            --out site/updater/latest.json \
+            --tag "$RELEASE_TAG" \
+            --version "$RELEASE_VERSION" \
+            --base-url "$R2_BASE_URL" \
+            --pub-date "$BUILD_TIME" \
+            ${EXISTING_MANIFEST:+--existing-manifest "$EXISTING_MANIFEST"}
+
+      - name: Upload artifacts, index, and updater manifest to Cloudflare R2
         shell: bash
         run: |
           set -euo pipefail
@@ -240,10 +299,20 @@ jobs:
           npx --yes wrangler r2 object put "${R2_BUCKET}/index.html" \
             --file site/index.html \
             --content-type "text/html; charset=utf-8" \
+            --cache-control "no-store" \
             --remote
 
           echo "Uploading releases.json -> ${R2_BUCKET}/releases.json"
           npx --yes wrangler r2 object put "${R2_BUCKET}/releases.json" \
             --file site/releases.json \
             --content-type "application/json" \
+            --cache-control "no-store" \
+            --remote
+
+          # Publish updater/latest.json atomically last so clients never see references to unuploaded assets.
+          echo "Uploading updater/latest.json -> ${R2_BUCKET}/updater/latest.json"
+          npx --yes wrangler r2 object put "${R2_BUCKET}/updater/latest.json" \
+            --file site/updater/latest.json \
+            --content-type "application/json" \
+            --cache-control "no-store" \
             --remote

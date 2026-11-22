@@ -43,7 +43,7 @@ export const SystemInfoCard = () => {
     useSystemState()
   const { installServiceAndRestartCore } = useServiceInstaller()
 
-  const { checkUpdate: triggerCheckUpdate, lastCheckUpdate } = useUpdate(false)
+  const { checkUpdate: triggerCheckUpdate, lastCheckUpdate } = useUpdate(true)
 
   const { data: osInfo = '' } = useQuery({
     queryKey: ['getSystemInfo'],

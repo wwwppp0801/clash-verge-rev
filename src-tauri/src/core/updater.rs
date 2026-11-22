@@ -142,30 +142,60 @@ pub fn is_build_to_stable(current: &str, remote: &str) -> bool {
     !build.is_empty() && !base.contains('-') && base == remote.trim_start_matches('v')
 }
 
-/// Compares numeric version components after stripping version suffixes.
+/// Compares SemVer versions including numeric prerelease identifiers (e.g. `2.6.0-wp.9` < `2.6.0-wp.10`).
 fn version_lte(a: &str, b: &str) -> bool {
-    let parse = |v: &str| -> Vec<u64> {
-        v.trim_start_matches('v')
-            .split(['-', '+'])
-            .next()
-            .unwrap_or("0")
+    fn parse(v: &str) -> (Vec<u64>, Vec<String>) {
+        let trimmed = v.trim_start_matches('v').split('+').next().unwrap_or("0");
+        let (core, pre) = match trimmed.split_once('-') {
+            Some((c, p)) => (c, Some(p)),
+            None => (trimmed, None),
+        };
+        let core_parts = core
             .split('.')
             .filter_map(|part| part.parse::<u64>().ok())
-            .collect()
-    };
+            .collect();
+        let pre_parts = pre
+            .map(|p| p.split('.').map(ToString::to_string).collect())
+            .unwrap_or_default();
+        (core_parts, pre_parts)
+    }
 
-    let a_parts = parse(a);
-    let b_parts = parse(b);
-    let len = a_parts.len().max(b_parts.len());
+    let (a_core, a_pre) = parse(a);
+    let (b_core, b_pre) = parse(b);
+    let len = a_core.len().max(b_core.len());
 
     for i in 0..len {
-        let av = a_parts.get(i).copied().unwrap_or(0);
-        let bv = b_parts.get(i).copied().unwrap_or(0);
+        let av = a_core.get(i).copied().unwrap_or(0);
+        let bv = b_core.get(i).copied().unwrap_or(0);
         if av < bv {
             return true;
         }
         if av > bv {
             return false;
+        }
+    }
+
+    match (a_pre.is_empty(), b_pre.is_empty()) {
+        (true, true) => return true,
+        (true, false) => return false,
+        (false, true) => return true,
+        (false, false) => {}
+    }
+
+    let pre_len = a_pre.len().max(b_pre.len());
+    for i in 0..pre_len {
+        match (a_pre.get(i), b_pre.get(i)) {
+            (None, Some(_)) => return true,
+            (Some(_), None) => return false,
+            (Some(ai), Some(bi)) if ai != bi => {
+                return match (ai.parse::<u64>(), bi.parse::<u64>()) {
+                    (Ok(an), Ok(bn)) => an < bn,
+                    (Ok(_), Err(_)) => true,
+                    (Err(_), Ok(_)) => false,
+                    (Err(_), Err(_)) => ai < bi,
+                };
+            }
+            _ => {}
         }
     }
     true // equal
@@ -196,48 +226,25 @@ pub enum DownloadEvent {
     Finished,
 }
 
-const MIRRORS: [&str; 2] = ["https://update.hwdns.net/", "https://gh-proxy.org/"];
-/// A source delivering less than this per window is dropped for the next one.
+/// A source delivering less than this per window is retried with a stall-only floor.
 const MIN_PROGRESS: u64 = 1024 * 1024;
 const PROGRESS_WINDOW: Duration = Duration::from_secs(30);
 
-/// The manifest's URL, then the other mirror, then GitHub itself.
-fn download_sources(url: &tauri::Url) -> Vec<tauri::Url> {
-    let origin = MIRRORS
-        .iter()
-        .find_map(|mirror| url.as_str().strip_prefix(mirror))
-        .unwrap_or(url.as_str());
-    let mut sources = vec![url.clone()];
-    if origin.starts_with("https://github.com/") {
-        let candidates = MIRRORS.iter().map(|mirror| format!("{mirror}{origin}"));
-        for candidate in candidates.chain([origin.to_owned()]) {
-            if let Ok(candidate) = tauri::Url::parse(&candidate)
-                && !sources.contains(&candidate)
-            {
-                sources.push(candidate);
-            }
-        }
-    }
-    sources
-}
-
-/// Tries every source with a throughput floor, then again stopping only on a stall, so a link
-/// that is slow everywhere still finishes.
+/// Downloads directly from the manifest's first-party URL with a throughput floor,
+/// then retries stopping only on a stall so slow connections still finish.
 async fn download(update: &Update, on_event: impl Fn(DownloadEvent) + Sync) -> Result<Vec<u8>> {
-    let sources = download_sources(&update.download_url);
+    let url = &update.download_url;
     let mut last_error = None;
     for floor in [MIN_PROGRESS, 1] {
-        for url in &sources {
-            logging!(info, Type::System, "Downloading update v{} from {url}", update.version);
-            match download_from(update, url, floor, &on_event).await {
-                Ok(bytes) => {
-                    on_event(DownloadEvent::Finished);
-                    return Ok(bytes);
-                }
-                Err(e) => {
-                    logging!(warn, Type::System, "Update download from {url} failed: {e:#}");
-                    last_error = Some(e);
-                }
+        logging!(info, Type::System, "Downloading update v{} from {url}", update.version);
+        match download_from(update, url, floor, &on_event).await {
+            Ok(bytes) => {
+                on_event(DownloadEvent::Finished);
+                return Ok(bytes);
+            }
+            Err(e) => {
+                logging!(warn, Type::System, "Update download from {url} failed: {e:#}");
+                last_error = Some(e);
             }
         }
     }
@@ -282,7 +289,9 @@ impl SilentUpdater {
     /// Checks the server; Windows receives `/LANG` to suppress the NSIS language dialog,
     /// see `packages/windows/installer.nsi`.
     async fn check(app_handle: &tauri::AppHandle) -> Result<Option<Update>> {
-        let updater_builder = app_handle.updater_builder();
+        let updater_builder = app_handle
+            .updater_builder()
+            .header("Cache-Control", "no-cache")?;
         #[cfg(target_os = "windows")]
         let updater_builder = {
             let verge_lang = Config::verge().await.latest_arc().language.clone();
@@ -297,7 +306,6 @@ impl SilentUpdater {
     }
 
     /// Installs a newer cached update before normal startup, if the user confirms.
-    #[allow(dead_code, reason = "This fork disables automatic updater startup")]
     pub async fn try_install_on_startup(&self, app_handle: &tauri::AppHandle) -> bool {
         if !Config::verge().await.latest_arc().auto_check_update.unwrap_or(true) {
             Self::delete_cache();
@@ -584,8 +592,7 @@ impl SilentUpdater {
 
         logging!(info, Type::System, "Silent updater: checking for updates...");
 
-        let updater = app_handle.updater()?;
-        let update = match updater.check().await {
+        let update = match Self::check(app_handle).await {
             Ok(Some(update)) => update,
             Ok(None) => {
                 logging!(info, Type::System, "Silent updater: no update available");
@@ -593,7 +600,7 @@ impl SilentUpdater {
             }
             Err(e) => {
                 logging!(warn, Type::System, "Silent updater: check failed: {e}");
-                return Err(e.into());
+                return Err(e);
             }
         };
 
@@ -654,7 +661,6 @@ impl SilentUpdater {
         Ok(())
     }
 
-    #[allow(dead_code, reason = "This fork disables automatic updater startup")]
     pub async fn start_background_check(&self, app_handle: tauri::AppHandle) {
         // Permanent watcher: daily update cycles for the lifetime of the app.
         logging!(info, Type::System, "Silent updater: background task started");
@@ -668,5 +674,19 @@ impl SilentUpdater {
 
             tokio::time::sleep(std::time::Duration::from_secs(24 * 60 * 60)).await;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::version_lte;
+
+    #[test]
+    fn version_lte_handles_numeric_prereleases() {
+        assert!(version_lte("2.6.0-wp.9", "2.6.0-wp.10"));
+        assert!(!version_lte("2.6.0-wp.10", "2.6.0-wp.9"));
+        assert!(version_lte("2.6.0-wp.10", "2.6.0-wp.10"));
+        assert!(version_lte("2.6.0-wp.10", "2.6.0"));
+        assert!(!version_lte("2.6.0", "2.6.0-wp.10"));
     }
 }

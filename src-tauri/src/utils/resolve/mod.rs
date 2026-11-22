@@ -11,6 +11,7 @@ use crate::{
         manager::CoreFailure,
         service::{SERVICE_MANAGER, ServiceManager},
         tray::Tray,
+        updater::SilentUpdater,
     },
     core::{auto_backup::AutoBackupManager, lightweight::auto_lightweight_boot},
     feat,
@@ -56,6 +57,12 @@ async fn resolve_setup() {
     // Migrate before windows or timers can change the loaded config.
     logging_error!(Type::Setup, init::migrate_short_update_intervals().await);
 
+    if SilentUpdater::global().try_install_on_startup(Handle::app_handle()).await {
+        logging!(info, Type::Setup, "Update installer triggered at startup, exiting");
+        Handle::app_handle().exit(0);
+        return;
+    }
+
     #[cfg(target_os = "macos")]
     resolve_dock_show().await;
     init_startup_script().await;
@@ -92,6 +99,12 @@ async fn resolve_setup() {
     Handle::refresh_clash();
     refresh_tray_menu().await;
     resolve_done();
+
+    AsyncHandler::spawn(|| async {
+        SilentUpdater::global()
+            .start_background_check(Handle::app_handle().clone())
+            .await;
+    });
 }
 
 fn init_scheme() {
