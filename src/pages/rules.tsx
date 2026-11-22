@@ -76,8 +76,11 @@ const RulesPage = () => {
     () => (verge?.app_routing ?? []).filter((r) => r.enabled).length,
     [verge?.app_routing],
   )
+  const system = getSystem()
   const showAppRouting =
-    getSystem() === 'macos' || (verge?.app_routing?.length ?? 0) > 0
+    system === 'macos' ||
+    system === 'windows' ||
+    (verge?.app_routing?.length ?? 0) > 0
 
   // 页面可见时刷新规则数据：挂载时可见或从隐藏恢复可见各触发一次
   useEffect(() => {

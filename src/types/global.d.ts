@@ -761,19 +761,9 @@ interface IProxyConfig
     | 'sudoku'
 }
 
-interface IAppRoutingRule {
-  name: string
-  path: string
-  policy: string
-  enabled: boolean
-  bundle_id?: string | null
-}
+type IAppRoutingRule = import('@/services/bindings').AppRoutingRule_Serialize
 
-interface IInstalledApp {
-  name: string
-  path: string
-  bundle_id?: string | null
-}
+type IInstalledApp = import('@/services/bindings').InstalledAppInfo_Serialize
 
 type IVergeConfig = Omit<
   Partial<import('@/services/bindings').IVerge_Serialize>,
@@ -786,7 +776,6 @@ type IVergeConfig = Omit<
         background_opacity?: number
       })
     | null
-  app_routing?: IAppRoutingRule[] | null
 }
 
 type IWebDavFile = import('@/services/bindings').WebDavFile & {

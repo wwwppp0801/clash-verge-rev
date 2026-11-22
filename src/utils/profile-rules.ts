@@ -79,7 +79,7 @@ const splitRuleParts = (raw: string): string[] => {
   return parts
 }
 
-export function normalizeRuleType(type: string): string {
+function normalizeRuleType(type: string): string {
   return type.trim().replace(/-/g, '').toUpperCase()
 }
 

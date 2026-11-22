@@ -861,12 +861,47 @@ fn escape_regex_meta(input: &str) -> std::string::String {
     escaped
 }
 
+#[cfg(target_os = "windows")]
+fn normalize_app_routing_path(raw: &str) -> std::string::String {
+    let trimmed = raw.trim();
+    let unquoted = trimmed
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .map_or(trimmed, str::trim);
+
+    let bytes = unquoted.as_bytes();
+    let is_win_drive =
+        bytes.len() >= 3 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && matches!(bytes[2], b'\\' | b'/');
+    let is_win_extended_or_unc = unquoted.starts_with(r"\\") || unquoted.starts_with("//");
+
+    if !is_win_drive && !is_win_extended_or_unc {
+        return trimmed.to_owned();
+    }
+
+    let normalized = unquoted.replace('/', r"\");
+    if normalized
+        .get(..8)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(r"\\?\UNC\"))
+    {
+        format!(r"\\{}", &normalized[8..])
+    } else if let Some(rest) = normalized.strip_prefix(r"\\?\") {
+        rest.to_owned()
+    } else {
+        normalized
+    }
+}
+
 fn apply_app_routing(mut config: Mapping, app_routing: &[AppRoutingRule]) -> Mapping {
     let mut generated: Vec<Value> = Vec::new();
     for rule in app_routing {
         if !rule.enabled {
             continue;
         }
+        #[cfg(target_os = "windows")]
+        let windows_path = normalize_app_routing_path(&rule.path);
+        #[cfg(target_os = "windows")]
+        let path = windows_path.as_str();
+        #[cfg(not(target_os = "windows"))]
         let path = rule.path.trim();
         let policy = rule.policy.trim();
         if path.is_empty()
