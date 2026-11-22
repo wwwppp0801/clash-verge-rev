@@ -7,6 +7,11 @@ on:
         description: 'Release version/tag (defaults to v<package.json version> or dev-<short-sha>)'
         required: false
         type: string
+      targets:
+        description: 'Comma-separated targets or "all" (default: x86_64-pc-windows-msvc,aarch64-apple-darwin)'
+        required: false
+        default: 'x86_64-pc-windows-msvc,aarch64-apple-darwin'
+        type: string
 
 permissions:
   contents: read
@@ -28,6 +33,7 @@ jobs:
       tag: ${{ steps.meta.outputs.tag }}
       version: ${{ steps.meta.outputs.version }}
       build_time: ${{ steps.meta.outputs.build_time }}
+      matrix: ${{ steps.meta.outputs.matrix }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -55,23 +61,33 @@ jobs:
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "build_time=${BUILD_TIME}" >> "$GITHUB_OUTPUT"
-          echo "Resolved release tag=${TAG}, version=${VERSION}, build_time=${BUILD_TIME}"
+          TARGETS_INPUT="${{ inputs.targets || 'x86_64-pc-windows-msvc,aarch64-apple-darwin' }}"
+          MATRIX_JSON="$(node -e '
+            const all = [
+              { os: "windows-latest", target: "x86_64-pc-windows-msvc" },
+              { os: "macos-latest", target: "aarch64-apple-darwin" },
+              { os: "macos-latest", target: "x86_64-apple-darwin" },
+              { os: "ubuntu-22.04", target: "x86_64-unknown-linux-gnu" },
+            ];
+            const raw = (process.argv[1] || "").trim();
+            const selected = !raw || raw === "all"
+              ? all
+              : all.filter((item) => raw.split(",").map((s) => s.trim()).includes(item.target));
+            if (selected.length === 0) {
+              console.error("No matching build targets for:", raw);
+              process.exit(1);
+            }
+            console.log(JSON.stringify({ include: selected }));
+          ' "$TARGETS_INPUT")"
+          echo "matrix=${MATRIX_JSON}" >> "$GITHUB_OUTPUT"
+          echo "Resolved release tag=${TAG}, version=${VERSION}, build_time=${BUILD_TIME}, matrix=${MATRIX_JSON}"
 
   build:
     name: Build (${{ matrix.target }})
     needs: [prepare]
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - os: macos-latest
-            target: aarch64-apple-darwin
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     runs-on: ${{ matrix.os }}
     steps:
