@@ -1,9 +1,6 @@
 name: Release to Cloudflare R2
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       version:
