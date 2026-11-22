@@ -867,8 +867,7 @@ fn normalize_app_routing_path(raw: &str) -> std::string::String {
     let unquoted = trimmed
         .strip_prefix('"')
         .and_then(|s| s.strip_suffix('"'))
-        .map(str::trim)
-        .unwrap_or(trimmed);
+        .map_or(trimmed, str::trim);
 
     let bytes = unquoted.as_bytes();
     let is_win_drive =

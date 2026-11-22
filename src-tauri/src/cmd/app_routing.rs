@@ -116,7 +116,7 @@ mod windows {
     use super::InstalledAppInfo;
     use std::collections::HashSet;
     use std::ffi::OsString;
-    use std::os::windows::ffi::{OsStrExt, OsStringExt};
+    use std::os::windows::ffi::{OsStrExt as _, OsStringExt as _};
     use std::path::{Path, PathBuf};
     use windows::Win32::Foundation::RPC_E_CHANGED_MODE;
     use windows::Win32::System::Com::{
@@ -124,7 +124,7 @@ mod windows {
         STGM_READ,
     };
     use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
-    use windows::core::{Interface, PCWSTR};
+    use windows::core::{Interface as _, PCWSTR};
     use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
@@ -292,16 +292,17 @@ mod windows {
     }
 
     fn scan_running_processes(seen: &mut HashSet<String>, apps: &mut Vec<InstalledAppInfo>) {
-        let system_roots: Vec<String> = std::env::var("SystemRoot")
-            .map(|root| {
+        let system_roots: Vec<String> = std::env::var("SystemRoot").map_or_else(
+            |_| Vec::new(),
+            |root| {
                 let base = root.trim_end_matches('\\').to_lowercase();
                 vec![
                     format!(r"{base}\system32\"),
                     format!(r"{base}\syswow64\"),
                     format!(r"{base}\winsxs\"),
                 ]
-            })
-            .unwrap_or_default();
+            },
+        );
 
         unsafe {
             let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
