@@ -8,17 +8,13 @@ import {
 } from '@mui/icons-material'
 import { Typography, Stack, Divider, Chip, IconButton } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import { useServiceInstaller } from '@/hooks/use-service-installer'
 import { useSystemState } from '@/hooks/use-system-state'
-import {
-  useUpdate,
-  updateLastCheckTime,
-  readLastCheckTime,
-} from '@/hooks/use-update'
+import { useUpdate } from '@/hooks/use-update'
 import { useVerge } from '@/hooks/use-verge'
 import { getSystemInfo } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
@@ -47,7 +43,7 @@ export const SystemInfoCard = () => {
     useSystemState()
   const { installServiceAndRestartCore } = useServiceInstaller()
 
-  const { checkUpdate: triggerCheckUpdate, lastCheckUpdate } = useUpdate(true)
+  const { checkUpdate: triggerCheckUpdate, lastCheckUpdate } = useUpdate(false)
 
   const { data: osInfo = '' } = useQuery({
     queryKey: ['getSystemInfo'],
@@ -58,17 +54,6 @@ export const SystemInfoCard = () => {
     () => (lastCheckUpdate ? new Date(lastCheckUpdate).toLocaleString() : '-'),
     [lastCheckUpdate],
   )
-
-  useEffect(() => {
-    if (!verge?.auto_check_update) return
-    if (readLastCheckTime() !== null) return
-
-    updateLastCheckTime()
-    const timeoutId = window.setTimeout(() => {
-      triggerCheckUpdate().catch(console.error)
-    }, 5000)
-    return () => window.clearTimeout(timeoutId)
-  }, [verge?.auto_check_update, triggerCheckUpdate])
 
   const goToSettings = useCallback(() => {
     navigate('/settings')

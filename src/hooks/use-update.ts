@@ -19,11 +19,11 @@ export const updateLastCheckTime = (timestamp?: number): number => {
   return now
 }
 
-export const useUpdate = (enabled: boolean = true) => {
+export const useUpdate = (enabled: boolean = false) => {
   const { verge } = useVerge()
   const { auto_check_update } = verge || {}
 
-  const shouldCheck = enabled && auto_check_update !== false
+  const shouldCheck = enabled && auto_check_update === true
 
   const fetchUpdate = async () => {
     const result = await checkUpdateSafe()

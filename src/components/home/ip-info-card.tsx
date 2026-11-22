@@ -110,7 +110,7 @@ export const IpInfoCard = () => {
   const [showIp, setShowIp] = useState(false)
   const [autoRefresh, setAutoRefresh] = useLocalStorage(
     'ip-info-auto-refresh',
-    true,
+    false,
   )
   const appWindow = useMemo(() => getCurrentWebviewWindow(), [])
 
