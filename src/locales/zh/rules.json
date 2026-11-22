@@ -120,7 +120,8 @@
         "placeholder": "自定义应用路径（如 /opt/homebrew/bin/curl 或 /path/to/My.app）",
         "placeholderWindows": "自定义程序路径（如 C:\\Program Files\\App\\app.exe）",
         "add": "添加路径",
-        "browse": "选择 .exe"
+        "browse": "选择 .exe",
+        "invalidWindows": "请输入不含逗号的 Windows 绝对 .exe 路径（如 C:\\Program Files\\App\\app.exe）"
       },
       "policyPlaceholder": "选择策略",
       "empty": "未找到匹配的应用",

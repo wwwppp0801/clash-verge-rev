@@ -692,6 +692,7 @@ export interface TranslationResources {
           customPath: {
             add: string
             browse: string
+            invalidWindows: string
             placeholder: string
             placeholderWindows: string
           }

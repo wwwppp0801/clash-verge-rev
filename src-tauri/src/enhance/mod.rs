@@ -868,12 +868,25 @@ fn normalize_app_routing_path(raw: &str) -> String {
         .and_then(|s| s.strip_suffix('"'))
         .map(str::trim)
         .unwrap_or(trimmed);
-    let stripped = unquoted.strip_prefix(r"\\?\").unwrap_or(unquoted);
-    let bytes = stripped.as_bytes();
-    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
-        stripped.replace('/', r"\")
+
+    let bytes = unquoted.as_bytes();
+    let is_win_drive = bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && matches!(bytes[2], b'\\' | b'/');
+    let is_win_extended_or_unc = unquoted.starts_with(r"\\") || unquoted.starts_with("//");
+
+    if !is_win_drive && !is_win_extended_or_unc {
+        return trimmed.to_owned();
+    }
+
+    let normalized = unquoted.replace('/', r"\");
+    if normalized.len() >= 8 && normalized[..8].eq_ignore_ascii_case(r"\\?\UNC\") {
+        format!(r"\\{}", &normalized[8..])
+    } else if let Some(rest) = normalized.strip_prefix(r"\\?\") {
+        rest.to_owned()
     } else {
-        stripped.to_owned()
+        normalized
     }
 }
 

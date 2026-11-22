@@ -160,29 +160,40 @@ mod windows {
         }
     }
 
+    fn strip_windows_extended_prefix(raw: &str) -> String {
+        let normalized = raw.replace('/', r"\");
+        if normalized.len() >= 8 && normalized[..8].eq_ignore_ascii_case(r"\\?\UNC\") {
+            format!(r"\\{}", &normalized[8..])
+        } else if let Some(rest) = normalized.strip_prefix(r"\\?\") {
+            rest.to_owned()
+        } else {
+            normalized
+        }
+    }
+
     fn normalize_exe_path(path: &Path) -> Option<String> {
-        let canonical = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-        if !canonical.is_file() {
+        // Preserve the original Win32 path (avoid canonicalize/junction resolution) so it matches
+        // Mihomo's QueryFullProcessImageNameW PROCESS-PATH lookup.
+        let cleaned = strip_windows_extended_prefix(&path.to_string_lossy());
+        if cleaned.is_empty() || cleaned.contains([',', '\n', '\r']) {
             return None;
         }
-        let is_exe = canonical
+        let cleaned_path = Path::new(&cleaned);
+        if !cleaned_path.is_file() {
+            return None;
+        }
+        let is_exe = cleaned_path
             .extension()
             .and_then(|ext| ext.to_str())
             .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"));
         if !is_exe {
             return None;
         }
-        let raw = canonical.to_string_lossy();
-        let cleaned = raw.strip_prefix(r"\\?\").unwrap_or(&raw);
-        Some(cleaned.to_owned())
+        Some(cleaned)
     }
 
     fn resolve_shortcut_target(lnk_path: &Path) -> Option<PathBuf> {
-        let wide_path: Vec<u16> = lnk_path
-            .as_os_str()
-            .encode_wide()
-            .chain(std::iter::once(0))
-            .collect();
+        let wide_path: Vec<u16> = lnk_path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
 
         unsafe {
             let shell_link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).ok()?;
@@ -201,12 +212,7 @@ mod windows {
         }
     }
 
-    fn walk_start_menu(
-        dir: &Path,
-        depth: usize,
-        seen: &mut HashSet<String>,
-        apps: &mut Vec<InstalledAppInfo>,
-    ) {
+    fn walk_start_menu(dir: &Path, depth: usize, seen: &mut HashSet<String>, apps: &mut Vec<InstalledAppInfo>) {
         if depth > MAX_SHORTCUT_DEPTH {
             return;
         }

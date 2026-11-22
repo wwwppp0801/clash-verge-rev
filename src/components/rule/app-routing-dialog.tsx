@@ -54,12 +54,27 @@ type FilterMode = 'all' | 'configured'
 
 function normalizePath(raw: string, isWindows: boolean): string {
   const trimmed = raw.trim()
+  if (!isWindows) return trimmed
   const unquoted =
     trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2
       ? trimmed.slice(1, -1).trim()
       : trimmed
-  if (!isWindows) return unquoted
-  return unquoted.replace(/^\\\\\?\\/, '').replace(/\//g, '\\')
+  const normalized = unquoted.replace(/\//g, '\\')
+  if (/^\\\\\?\\unc\\/i.test(normalized)) {
+    return `\\\\${normalized.slice(8)}`
+  }
+  if (normalized.startsWith('\\\\?\\')) {
+    return normalized.slice(4)
+  }
+  return normalized
+}
+
+function isValidWindowsExePath(normalized: string): boolean {
+  if (!normalized || /[,\r\n]/.test(normalized)) return false
+  if (!normalized.toLowerCase().endsWith('.exe')) return false
+  const isDrive = /^[a-zA-Z]:\\.+/.test(normalized)
+  const isUnc = /^\\\\[^\\]+\\[^\\]+\\.+/.test(normalized)
+  return isDrive || isUnc
 }
 
 function pathKey(raw: string, isWindows: boolean): string {
@@ -98,6 +113,7 @@ export const AppRoutingDialog = ({
   const [search, setSearch] = useState('')
   const [filterMode, setFilterMode] = useState<FilterMode>('all')
   const [customPath, setCustomPath] = useState('')
+  const [customPathError, setCustomPathError] = useState('')
 
   const [draftMap, setDraftMap] = useState<Record<string, AppEntry>>(() => {
     const initial: Record<string, AppEntry> = {}
@@ -212,9 +228,12 @@ export const AppRoutingDialog = ({
     }))
   }
 
-  const addPathToDraft = (rawPath: string) => {
+  const addPathToDraft = (rawPath: string): boolean => {
     const normalized = normalizePath(rawPath, isWindows)
-    if (!normalized) return
+    if (!normalized) return false
+    if (isWindows && !isValidWindowsExePath(normalized)) {
+      return false
+    }
     const key = pathKey(normalized, isWindows)
     const name = deriveNameFromPath(normalized)
     setDraftMap((prev) => ({
@@ -227,11 +246,16 @@ export const AppRoutingDialog = ({
         enabled: true,
       },
     }))
+    return true
   }
 
   const handleAddCustomPath = () => {
     if (!customPath.trim()) return
-    addPathToDraft(customPath)
+    if (!addPathToDraft(customPath)) {
+      setCustomPathError(t('rules.modals.appRouting.customPath.invalidWindows'))
+      return
+    }
+    setCustomPathError('')
     setCustomPath('')
   }
 
@@ -243,7 +267,14 @@ export const AppRoutingDialog = ({
         filters: [{ name: 'Executable', extensions: ['exe'] }],
       })
       if (typeof selected === 'string' && selected.trim()) {
-        addPathToDraft(selected)
+        if (!addPathToDraft(selected)) {
+          showNotice.error(
+            t('rules.modals.appRouting.customPath.invalidWindows'),
+            3000,
+          )
+        } else {
+          setCustomPathError('')
+        }
       }
     } catch (err) {
       showNotice.error(err, 3000)
@@ -319,17 +350,22 @@ export const AppRoutingDialog = ({
             </ToggleButtonGroup>
           </Stack>
 
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
             <TextField
               size="small"
               fullWidth
+              error={Boolean(customPathError)}
+              helperText={customPathError || undefined}
               placeholder={
                 isWindows
                   ? t('rules.modals.appRouting.customPath.placeholderWindows')
                   : t('rules.modals.appRouting.customPath.placeholder')
               }
               value={customPath}
-              onChange={(e) => setCustomPath(e.target.value)}
+              onChange={(e) => {
+                setCustomPath(e.target.value)
+                if (customPathError) setCustomPathError('')
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()

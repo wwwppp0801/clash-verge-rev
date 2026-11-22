@@ -469,6 +469,7 @@ export const translationKeys = [
   'rules.modals.appRouting.customPath.placeholderWindows',
   'rules.modals.appRouting.customPath.add',
   'rules.modals.appRouting.customPath.browse',
+  'rules.modals.appRouting.customPath.invalidWindows',
   'rules.modals.appRouting.policyPlaceholder',
   'rules.modals.appRouting.empty',
   'rules.modals.appRouting.loading',

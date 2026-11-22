@@ -120,7 +120,8 @@
         "placeholder": "Custom app path (e.g. /opt/homebrew/bin/curl or /path/to/My.app)",
         "placeholderWindows": "Custom executable path (e.g. C:\\Program Files\\App\\app.exe)",
         "add": "Add Path",
-        "browse": "Browse .exe"
+        "browse": "Browse .exe",
+        "invalidWindows": "Please enter an absolute Windows .exe path without commas (e.g. C:\\Program Files\\App\\app.exe)"
       },
       "policyPlaceholder": "Select policy",
       "empty": "No matching applications",
