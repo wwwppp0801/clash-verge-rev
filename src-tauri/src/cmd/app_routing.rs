@@ -106,7 +106,7 @@ mod macos {
             }
         }
 
-        apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        apps.sort_by_cached_key(|app| app.name.to_lowercase());
         apps
     }
 }

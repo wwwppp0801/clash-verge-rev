@@ -862,7 +862,7 @@ fn escape_regex_meta(input: &str) -> std::string::String {
 }
 
 #[cfg(target_os = "windows")]
-fn normalize_app_routing_path(raw: &str) -> String {
+fn normalize_app_routing_path(raw: &str) -> std::string::String {
     let trimmed = raw.trim();
     let unquoted = trimmed
         .strip_prefix('"')

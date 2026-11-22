@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
+import crypto from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
 
 const INSTALLER_EXTENSIONS = [
   '.exe',
@@ -10,7 +10,7 @@ const INSTALLER_EXTENSIONS = [
   '.deb',
   '.rpm',
   '.AppImage',
-];
+]
 
 function parseArgs(argv) {
   const args = {
@@ -20,88 +20,96 @@ function parseArgs(argv) {
     version: process.env.RELEASE_VERSION || '',
     baseUrl: process.env.R2_BASE_URL || 'https://clash.wangp.org',
     buildTime: process.env.BUILD_TIME || new Date().toISOString(),
-  };
+  }
 
   for (let i = 2; i < argv.length; i += 1) {
-    const key = argv[i];
-    const next = argv[i + 1];
-    if (!next) continue;
+    const key = argv[i]
+    const next = argv[i + 1]
+    if (!next) continue
     if (key === '--artifacts-dir') {
-      args.artifactsDir = next;
-      i += 1;
+      args.artifactsDir = next
+      i += 1
     } else if (key === '--out-dir') {
-      args.outDir = next;
-      i += 1;
+      args.outDir = next
+      i += 1
     } else if (key === '--tag') {
-      args.tag = next;
-      i += 1;
+      args.tag = next
+      i += 1
     } else if (key === '--version') {
-      args.version = next;
-      i += 1;
+      args.version = next
+      i += 1
     } else if (key === '--base-url') {
-      args.baseUrl = next;
-      i += 1;
+      args.baseUrl = next
+      i += 1
     } else if (key === '--build-time') {
-      args.buildTime = next;
-      i += 1;
+      args.buildTime = next
+      i += 1
     }
   }
 
   if (!args.version) {
-    args.version = args.tag.replace(/^v/, '');
+    args.version = args.tag.replace(/^v/, '')
   }
-  args.baseUrl = args.baseUrl.replace(/\/+$/, '');
-  return args;
+  args.baseUrl = args.baseUrl.replace(/\/+$/, '')
+  return args
 }
 
 function getExtension(filename) {
   for (const ext of INSTALLER_EXTENSIONS) {
     if (filename.toLowerCase().endsWith(ext.toLowerCase())) {
-      return ext;
+      return ext
     }
   }
-  return null;
+  return null
 }
 
 function classifyPlatform(ext) {
-  const lower = ext.toLowerCase();
-  if (lower === '.exe' || lower === '.msi') return 'windows';
-  if (lower === '.dmg') return 'macos';
+  const lower = ext.toLowerCase()
+  if (lower === '.exe' || lower === '.msi') return 'windows'
+  if (lower === '.dmg') return 'macos'
   if (lower === '.deb' || lower === '.rpm' || lower === '.appimage') {
-    return 'linux';
+    return 'linux'
   }
-  return 'other';
+  return 'other'
 }
 
 function detectArch(filename) {
-  const lower = filename.toLowerCase();
-  if (lower.includes('aarch64') || lower.includes('arm64')) return 'ARM64';
-  if (lower.includes('armv7') || lower.includes('armhf') || lower.includes('armhfp')) {
-    return 'ARMv7';
+  const lower = filename.toLowerCase()
+  if (lower.includes('aarch64') || lower.includes('arm64')) return 'ARM64'
+  if (
+    lower.includes('armv7') ||
+    lower.includes('armhf') ||
+    lower.includes('armhfp')
+  ) {
+    return 'ARMv7'
   }
-  if (lower.includes('x86_64') || lower.includes('amd64') || lower.includes('x64')) {
-    return 'x64';
+  if (
+    lower.includes('x86_64') ||
+    lower.includes('amd64') ||
+    lower.includes('x64')
+  ) {
+    return 'x64'
   }
-  if (lower.includes('universal')) return 'Universal';
-  return 'Standard';
+  if (lower.includes('universal')) return 'Universal'
+  return 'Standard'
 }
 
 function formatBytes(bytes) {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
+  if (bytes === 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
   const idx = Math.min(
     Math.floor(Math.log(bytes) / Math.log(1024)),
     units.length - 1,
-  );
-  const value = bytes / 1024 ** idx;
-  return `${value.toFixed(idx === 0 ? 0 : 2)} ${units[idx]}`;
+  )
+  const value = bytes / 1024 ** idx
+  return `${value.toFixed(idx === 0 ? 0 : 2)} ${units[idx]}`
 }
 
 function computeSha256(filePath) {
-  const hash = crypto.createHash('sha256');
-  const data = fs.readFileSync(filePath);
-  hash.update(data);
-  return hash.digest('hex');
+  const hash = crypto.createHash('sha256')
+  const data = fs.readFileSync(filePath)
+  hash.update(data)
+  return hash.digest('hex')
 }
 
 function escapeHtml(str) {
@@ -110,31 +118,31 @@ function escapeHtml(str) {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+    .replaceAll("'", '&#39;')
 }
 
 function collectAssets(artifactsDir, baseUrl, tag) {
   if (!fs.existsSync(artifactsDir)) {
-    throw new Error(`Artifacts directory does not exist: ${artifactsDir}`);
+    throw new Error(`Artifacts directory does not exist: ${artifactsDir}`)
   }
 
   const entries = fs
     .readdirSync(artifactsDir, { withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
-    .sort((a, b) => a.localeCompare(b));
+    .sort((a, b) => a.localeCompare(b))
 
-  const assets = [];
+  const assets = []
   for (const name of entries) {
-    const ext = getExtension(name);
-    if (!ext) continue;
+    const ext = getExtension(name)
+    if (!ext) continue
 
-    const fullPath = path.join(artifactsDir, name);
-    const stat = fs.statSync(fullPath);
-    const sha256 = computeSha256(fullPath);
-    const platform = classifyPlatform(ext);
-    const arch = detectArch(name);
-    const url = `${baseUrl}/releases/${encodeURIComponent(tag)}/${encodeURIComponent(name)}`;
+    const fullPath = path.join(artifactsDir, name)
+    const stat = fs.statSync(fullPath)
+    const sha256 = computeSha256(fullPath)
+    const platform = classifyPlatform(ext)
+    const arch = detectArch(name)
+    const url = `${baseUrl}/releases/${encodeURIComponent(tag)}/${encodeURIComponent(name)}`
 
     assets.push({
       name,
@@ -145,10 +153,10 @@ function collectAssets(artifactsDir, baseUrl, tag) {
       sizeFormatted: formatBytes(stat.size),
       sha256,
       url,
-    });
+    })
   }
 
-  return assets;
+  return assets
 }
 
 function renderPlatformSection(title, subtitle, items) {
@@ -160,7 +168,7 @@ function renderPlatformSection(title, subtitle, items) {
           <span class="platform-sub">${escapeHtml(subtitle)}</span>
         </div>
         <p class="empty">No artifacts available for this platform in this build.</p>
-      </section>`;
+      </section>`
   }
 
   const rows = items
@@ -181,7 +189,7 @@ function renderPlatformSection(title, subtitle, items) {
           <a class="download-btn" href="${escapeHtml(item.url)}">Download</a>
         </div>`,
     )
-    .join('\n');
+    .join('\n')
 
   return `
       <section class="platform-card">
@@ -192,16 +200,20 @@ function renderPlatformSection(title, subtitle, items) {
         <div class="artifact-list">
           ${rows}
         </div>
-      </section>`;
+      </section>`
 }
 
 function renderHtml(manifest) {
-  const { version, tag, buildTime, platforms } = manifest;
+  const { version, tag, buildTime, platforms } = manifest
   const sections = [
     renderPlatformSection('Windows', 'x64 (.exe / .msi)', platforms.windows),
-    renderPlatformSection('macOS', 'Apple Silicon & Intel (.dmg)', platforms.macos),
+    renderPlatformSection(
+      'macOS',
+      'Apple Silicon & Intel (.dmg)',
+      platforms.macos,
+    ),
     renderPlatformSection('Linux', 'Debian / RPM / AppImage', platforms.linux),
-  ].join('\n');
+  ].join('\n')
 
   return `<!doctype html>
 <html lang="en">
@@ -420,24 +432,24 @@ function renderHtml(manifest) {
   </main>
 </body>
 </html>
-`;
+`
 }
 
 function main() {
-  const args = parseArgs(process.argv);
-  const assets = collectAssets(args.artifactsDir, args.baseUrl, args.tag);
+  const args = parseArgs(process.argv)
+  const assets = collectAssets(args.artifactsDir, args.baseUrl, args.tag)
 
   if (assets.length === 0) {
     throw new Error(
       `No installer artifacts found in ${args.artifactsDir} (expected ${INSTALLER_EXTENSIONS.join(', ')})`,
-    );
+    )
   }
 
   const platforms = {
     windows: assets.filter((a) => a.platform === 'windows'),
     macos: assets.filter((a) => a.platform === 'macos'),
     linux: assets.filter((a) => a.platform === 'linux'),
-  };
+  }
 
   const manifest = {
     version: args.version,
@@ -446,18 +458,18 @@ function main() {
     baseUrl: args.baseUrl,
     platforms,
     assets,
-  };
+  }
 
-  fs.mkdirSync(args.outDir, { recursive: true });
-  const jsonPath = path.join(args.outDir, 'releases.json');
-  const htmlPath = path.join(args.outDir, 'index.html');
+  fs.mkdirSync(args.outDir, { recursive: true })
+  const jsonPath = path.join(args.outDir, 'releases.json')
+  const htmlPath = path.join(args.outDir, 'index.html')
 
-  fs.writeFileSync(jsonPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-  fs.writeFileSync(htmlPath, renderHtml(manifest), 'utf8');
+  fs.writeFileSync(jsonPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+  fs.writeFileSync(htmlPath, renderHtml(manifest), 'utf8')
 
   console.log(
     `Generated ${htmlPath} and ${jsonPath} for ${args.tag} (${assets.length} artifacts)`,
-  );
+  )
 }
 
-main();
+main()
