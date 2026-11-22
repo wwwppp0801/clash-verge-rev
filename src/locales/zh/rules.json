@@ -8,10 +8,20 @@
         "update": "更新"
       }
     },
+    "actions": {
+      "addRule": "添加规则",
+      "editRule": "编辑规则",
+      "deleteRule": "删除规则"
+    },
     "title": "规则"
   },
   "feedback": {
     "notifications": {
+      "crud": {
+        "ruleAdded": "规则已添加",
+        "ruleUpdated": "规则已更新",
+        "ruleDeleted": "规则已删除"
+      },
       "provider": {
         "updateSuccess": "{{name}} 更新成功",
         "updateFailed": "{{name}} 更新失败: {{message}}",
@@ -77,6 +87,21 @@
         "MATCH": "匹配所有请求 (MATCH)"
       },
       "title": "编辑规则"
+    },
+    "ruleForm": {
+      "addTitle": "添加规则",
+      "editTitle": "编辑规则",
+      "position": {
+        "label": "插入位置",
+        "prepend": "置于顶部（最高优先级）",
+        "beforeMatch": "置于 MATCH 规则之前",
+        "append": "追加到末尾"
+      },
+      "validation": {
+        "typeRequired": "请选择或输入规则类型",
+        "payloadRequired": "请输入规则内容",
+        "proxyRequired": "请选择或输入代理策略"
+      }
     }
   }
 }

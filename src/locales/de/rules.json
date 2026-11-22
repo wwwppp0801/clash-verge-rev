@@ -8,10 +8,20 @@
         "update": "Aktualisieren"
       }
     },
+    "actions": {
+      "addRule": "Add Rule",
+      "editRule": "Edit Rule",
+      "deleteRule": "Delete Rule"
+    },
     "title": "Regeln"
   },
   "feedback": {
     "notifications": {
+      "crud": {
+        "ruleAdded": "Rule added",
+        "ruleUpdated": "Rule updated",
+        "ruleDeleted": "Rule deleted"
+      },
       "provider": {
         "updateSuccess": "{{name}} erfolgreich aktualisiert",
         "updateFailed": "Aktualisierung von {{name}} fehlgeschlagen: {{message}}",
@@ -77,6 +87,21 @@
         "MATCH": "Alle Anfragen übereinstimmen"
       },
       "title": "Regeln bearbeiten"
+    },
+    "ruleForm": {
+      "addTitle": "Add Rule",
+      "editTitle": "Edit Rule",
+      "position": {
+        "label": "Insert Position",
+        "prepend": "Top of rules (highest priority)",
+        "beforeMatch": "Before MATCH rule",
+        "append": "End of rules"
+      },
+      "validation": {
+        "typeRequired": "Rule type is required",
+        "payloadRequired": "Rule content is required",
+        "proxyRequired": "Proxy policy is required"
+      }
     }
   }
 }

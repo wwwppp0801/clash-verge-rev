@@ -8,10 +8,20 @@
         "update": "به‌روزرسانی"
       }
     },
+    "actions": {
+      "addRule": "Add Rule",
+      "editRule": "Edit Rule",
+      "deleteRule": "Delete Rule"
+    },
     "title": "قوانین"
   },
   "feedback": {
     "notifications": {
+      "crud": {
+        "ruleAdded": "Rule added",
+        "ruleUpdated": "Rule updated",
+        "ruleDeleted": "Rule deleted"
+      },
       "provider": {
         "updateSuccess": "{{name}} updated successfully",
         "updateFailed": "Failed to update {{name}}: {{message}}",
@@ -77,6 +87,21 @@
         "MATCH": "مطابقت با تمام درخواست‌ها"
       },
       "title": "ویرایش قوانین"
+    },
+    "ruleForm": {
+      "addTitle": "Add Rule",
+      "editTitle": "Edit Rule",
+      "position": {
+        "label": "Insert Position",
+        "prepend": "Top of rules (highest priority)",
+        "beforeMatch": "Before MATCH rule",
+        "append": "End of rules"
+      },
+      "validation": {
+        "typeRequired": "Rule type is required",
+        "payloadRequired": "Rule content is required",
+        "proxyRequired": "Proxy policy is required"
+      }
     }
   }
 }

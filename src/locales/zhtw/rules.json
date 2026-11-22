@@ -8,10 +8,20 @@
         "update": "更新"
       }
     },
+    "actions": {
+      "addRule": "Add Rule",
+      "editRule": "Edit Rule",
+      "deleteRule": "Delete Rule"
+    },
     "title": "規則"
   },
   "feedback": {
     "notifications": {
+      "crud": {
+        "ruleAdded": "Rule added",
+        "ruleUpdated": "Rule updated",
+        "ruleDeleted": "Rule deleted"
+      },
       "provider": {
         "updateSuccess": "已成功更新 {{name}}",
         "updateFailed": "更新 {{name}} 失敗：{{message}}",
@@ -77,6 +87,21 @@
         "MATCH": "匹配所有請求 (MATCH)"
       },
       "title": "編輯規則"
+    },
+    "ruleForm": {
+      "addTitle": "Add Rule",
+      "editTitle": "Edit Rule",
+      "position": {
+        "label": "Insert Position",
+        "prepend": "Top of rules (highest priority)",
+        "beforeMatch": "Before MATCH rule",
+        "append": "End of rules"
+      },
+      "validation": {
+        "typeRequired": "Rule type is required",
+        "payloadRequired": "Rule content is required",
+        "proxyRequired": "Proxy policy is required"
+      }
     }
   }
 }

@@ -667,6 +667,11 @@ export interface TranslationResources {
     rules: {
       feedback: {
         notifications: {
+          crud: {
+            ruleAdded: string
+            ruleDeleted: string
+            ruleUpdated: string
+          }
           provider: {
             allUpdated: string
             genericError: string
@@ -733,8 +738,28 @@ export interface TranslationResources {
           }
           title: string
         }
+        ruleForm: {
+          addTitle: string
+          editTitle: string
+          position: {
+            append: string
+            beforeMatch: string
+            label: string
+            prepend: string
+          }
+          validation: {
+            payloadRequired: string
+            proxyRequired: string
+            typeRequired: string
+          }
+        }
       }
       page: {
+        actions: {
+          addRule: string
+          deleteRule: string
+          editRule: string
+        }
         provider: {
           actions: {
             update: string

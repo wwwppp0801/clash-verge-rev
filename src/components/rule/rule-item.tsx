@@ -1,8 +1,11 @@
-import { styled, Box, Typography } from '@mui/material'
+import { DeleteOutlined, EditOutlined } from '@mui/icons-material'
+import { Box, IconButton, Tooltip, Typography, styled } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import { Rule } from 'tauri-plugin-mihomo-api'
 
 const Item = styled(Box)(({ theme }) => ({
   display: 'flex',
+  alignItems: 'center',
   padding: '4px 16px',
   color: theme.palette.text.primary,
 }))
@@ -18,6 +21,10 @@ const COLOR = [
 interface Props {
   value: Rule
   lineNo: number
+  editable?: boolean
+  disabled?: boolean
+  onEdit?: () => void
+  onDelete?: () => void
 }
 
 const parseColor = (text: string) => {
@@ -32,7 +39,8 @@ const parseColor = (text: string) => {
 }
 
 const RuleItem = (props: Props) => {
-  const { value, lineNo } = props
+  const { value, lineNo, editable, disabled, onEdit, onDelete } = props
+  const { t } = useTranslation()
 
   return (
     <Item sx={{ borderBottom: '1px solid var(--divider-color)' }}>
@@ -44,7 +52,7 @@ const RuleItem = (props: Props) => {
         {lineNo}
       </Typography>
 
-      <Box sx={{ userSelect: 'text' }}>
+      <Box sx={{ userSelect: 'text', flex: 1, minWidth: 0 }}>
         <Typography component="h6" variant="subtitle1" color="text.primary">
           {value.payload || '-'}
         </Typography>
@@ -66,6 +74,36 @@ const RuleItem = (props: Props) => {
           {value.proxy}
         </Typography>
       </Box>
+
+      {editable && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
+          <Tooltip title={t('rules.page.actions.editRule')}>
+            <span>
+              <IconButton
+                size="small"
+                disabled={disabled}
+                onClick={onEdit}
+                aria-label={t('rules.page.actions.editRule')}
+              >
+                <EditOutlined fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={t('rules.page.actions.deleteRule')}>
+            <span>
+              <IconButton
+                size="small"
+                color="error"
+                disabled={disabled}
+                onClick={onDelete}
+                aria-label={t('rules.page.actions.deleteRule')}
+              >
+                <DeleteOutlined fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
+      )}
     </Item>
   )
 }
