@@ -4,6 +4,7 @@
       "tabs": {
         "home": "Home",
         "proxies": "الوكلاء",
+        "nodes": "Nodes",
         "profiles": "الملفات الشخصية",
         "connections": "الاتصالات",
         "rules": "القواعد",
