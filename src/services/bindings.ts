@@ -20,9 +20,7 @@ export const commands = {
   openLogsDir: () => __TAURI_INVOKE<null>('open_logs_dir'),
   openCoreDir: () => __TAURI_INVOKE<null>('open_core_dir'),
   listInstalledApps: () =>
-    __TAURI_INVOKE<{ name: string; path: string; bundle_id?: string | null }[]>(
-      'list_installed_apps',
-    ),
+    __TAURI_INVOKE<InstalledAppInfo_Serialize[]>('list_installed_apps'),
   getNetworkInterfaces: () =>
     __TAURI_INVOKE<string[]>('get_network_interfaces'),
   getSystemHostname: () => __TAURI_INVOKE<string>('get_system_hostname'),
@@ -191,6 +189,26 @@ export const commands = {
 }
 
 /* Types */
+export type AppRoutingRule =
+  | AppRoutingRule_Serialize
+  | AppRoutingRule_Deserialize
+
+export type AppRoutingRule_Deserialize = {
+  name: string
+  path: string
+  policy: string
+  enabled?: boolean
+  bundle_id?: string | null
+}
+
+export type AppRoutingRule_Serialize = {
+  name: string
+  path: string
+  policy: string
+  enabled: boolean
+  bundle_id?: string
+}
+
 export type AutoProxy = {
   enable: boolean
   url: string
@@ -449,6 +467,7 @@ export type IVerge_Deserialize = {
   enable_auto_light_weight_mode?: boolean | null
   /**  自动进入轻量模式的延迟（分钟） */
   auto_light_weight_minutes?: number | null
+  app_routing?: AppRoutingRule_Deserialize[] | null
   enable_hover_jump_navigator?: boolean | null
   /**  代理页面自动滚动延迟（毫秒） */
   hover_jump_navigator_delay?: number | null
@@ -540,6 +559,7 @@ export type IVerge_Serialize = {
   enable_auto_light_weight_mode: boolean | null
   /**  自动进入轻量模式的延迟（分钟） */
   auto_light_weight_minutes: number | null
+  app_routing?: AppRoutingRule_Serialize[]
   enable_hover_jump_navigator: boolean | null
   /**  代理页面自动滚动延迟（毫秒） */
   hover_jump_navigator_delay: number | null
@@ -559,6 +579,22 @@ export type IconInfo = {
 }
 
 export type InstallUpdateOutcome = 'installed' | 'cancelled' | 'update_changed'
+
+export type InstalledAppInfo =
+  | InstalledAppInfo_Serialize
+  | InstalledAppInfo_Deserialize
+
+export type InstalledAppInfo_Deserialize = {
+  name: string
+  path: string
+  bundle_id?: string | null
+}
+
+export type InstalledAppInfo_Serialize = {
+  name: string
+  path: string
+  bundle_id?: string
+}
 
 export type InterfaceAddress =
   | ({ V4: IpAddress } & { V6?: never })
