@@ -44,6 +44,7 @@ test('buildUpdaterManifest maps signed Windows NSIS and macOS tar.gz while ignor
       tag: 'v2.6.0-wp.10',
       version: '2.6.0-wp.10',
       baseUrl: 'https://clash.wangp.org',
+      updaterPrefix: 'updater/artifacts/v2.6.0-wp.10/999-1',
       pubDate: '2026-04-16T00:00:00Z',
     })
 
@@ -51,7 +52,7 @@ test('buildUpdaterManifest maps signed Windows NSIS and macOS tar.gz while ignor
     assert.equal(manifest.version, '2.6.0-wp.10')
     assert.deepEqual(manifest.platforms['windows-x86_64'], {
       signature: 'WIN_SIG',
-      url: 'https://clash.wangp.org/releases/v2.6.0-wp.10/Clash.Verge_2.6.0-wp.10_x64-setup.exe',
+      url: 'https://clash.wangp.org/updater/artifacts/v2.6.0-wp.10/999-1/Clash.Verge_2.6.0-wp.10_x64-setup.exe',
     })
     assert.deepEqual(
       manifest.platforms['windows-x86_64-nsis'],
@@ -59,7 +60,7 @@ test('buildUpdaterManifest maps signed Windows NSIS and macOS tar.gz while ignor
     )
     assert.deepEqual(manifest.platforms['darwin-aarch64'], {
       signature: 'MAC_SIG',
-      url: 'https://clash.wangp.org/releases/v2.6.0-wp.10/Clash.Verge_2.6.0-wp.10_aarch64.app.tar.gz',
+      url: 'https://clash.wangp.org/updater/artifacts/v2.6.0-wp.10/999-1/Clash.Verge_2.6.0-wp.10_aarch64.app.tar.gz',
     })
     assert.deepEqual(
       manifest.platforms['darwin-aarch64-app'],
@@ -163,7 +164,7 @@ test('buildUpdaterManifest handles same-version merge, higher-version preservati
         'darwin-aarch64': { signature: 'OLD_MAC', url: 'https://clash.wangp.org/mac9' },
       },
     }
-    const bumped = buildUpdaterManifest({
+    const partialNewer = buildUpdaterManifest({
       artifactsDir: dir,
       tag: 'v2.6.0-wp.10',
       version: '2.6.0-wp.10',
@@ -171,10 +172,30 @@ test('buildUpdaterManifest handles same-version merge, higher-version preservati
       pubDate: '2026-04-16T00:00:00Z',
       existingManifest: existingLower,
     })
-    assert.equal(bumped.action, 'created-new-version')
-    assert.equal(bumped.manifest.version, '2.6.0-wp.10')
-    assert.equal(bumped.manifest.platforms['darwin-aarch64'], undefined)
-    assert.ok(bumped.manifest.platforms['windows-x86_64'])
+    assert.equal(partialNewer.action, 'preserved-incomplete-partial')
+    assert.equal(partialNewer.manifest.version, '2.6.0-wp.9')
+    assert.deepEqual(partialNewer.omittedPlatforms, ['darwin-aarch64'])
+
+    fs.writeFileSync(
+      path.join(dir, 'Clash.Verge_2.6.0-wp.10_aarch64.app.tar.gz'),
+      'tgz',
+    )
+    fs.writeFileSync(
+      path.join(dir, 'Clash.Verge_2.6.0-wp.10_aarch64.app.tar.gz.sig'),
+      'MAC_SIG_10',
+    )
+    const completeNewer = buildUpdaterManifest({
+      artifactsDir: dir,
+      tag: 'v2.6.0-wp.10',
+      version: '2.6.0-wp.10',
+      baseUrl: 'https://clash.wangp.org',
+      pubDate: '2026-04-16T00:00:00Z',
+      existingManifest: existingLower,
+    })
+    assert.equal(completeNewer.action, 'created-new-version')
+    assert.equal(completeNewer.manifest.version, '2.6.0-wp.10')
+    assert.ok(completeNewer.manifest.platforms['darwin-aarch64'])
+    assert.ok(completeNewer.manifest.platforms['windows-x86_64'])
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }

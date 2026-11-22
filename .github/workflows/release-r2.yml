@@ -212,6 +212,30 @@ jobs:
             exit 1
           fi
 
+          # Verify required signed updater bundles exist for targets that support Tauri auto-updates.
+          case "$BUILD_TARGET" in
+            x86_64-pc-windows-msvc)
+              shopt -s nullglob
+              nsis_files=(dist-artifacts/*x64-setup.exe)
+              if [ ${#nsis_files[@]} -eq 0 ] || [ ! -f "${nsis_files[0]}.sig" ]; then
+                echo "::error::Missing signed Windows NSIS updater bundle (*x64-setup.exe + .sig) for ${BUILD_TARGET}"
+                exit 1
+              fi
+              ;;
+            aarch64-apple-darwin)
+              if [ ! -f "dist-artifacts/Clash.Verge_${BUILD_VERSION}_aarch64.app.tar.gz" ] || [ ! -f "dist-artifacts/Clash.Verge_${BUILD_VERSION}_aarch64.app.tar.gz.sig" ]; then
+                echo "::error::Missing signed macOS updater bundle (.app.tar.gz + .sig) for ${BUILD_TARGET}"
+                exit 1
+              fi
+              ;;
+            x86_64-apple-darwin)
+              if [ ! -f "dist-artifacts/Clash.Verge_${BUILD_VERSION}_x64.app.tar.gz" ] || [ ! -f "dist-artifacts/Clash.Verge_${BUILD_VERSION}_x64.app.tar.gz.sig" ]; then
+                echo "::error::Missing signed macOS updater bundle (.app.tar.gz + .sig) for ${BUILD_TARGET}"
+                exit 1
+              fi
+              ;;
+          esac
+
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -223,6 +247,9 @@ jobs:
     name: Publish to Cloudflare R2
     needs: [prepare, build]
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-r2-publish
+      cancel-in-progress: false
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -231,6 +258,7 @@ jobs:
       BUILD_TIME: ${{ needs.prepare.outputs.build_time }}
       R2_BUCKET: clash-verge-rev
       R2_BASE_URL: https://clash.wangp.org
+      UPDATER_PREFIX: updater/artifacts/${{ needs.prepare.outputs.tag }}/${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -267,10 +295,14 @@ jobs:
             --build-time "$BUILD_TIME"
 
           EXISTING_MANIFEST=""
-          if curl -fsSL "${R2_BASE_URL}/updater/latest.json?t=$(date +%s)" -o existing-latest.json; then
+          HTTP_STATUS="$(curl -sS -w '%{http_code}' -o existing-latest.json "${R2_BASE_URL}/updater/latest.json?t=$(date +%s)")"
+          if [ "$HTTP_STATUS" = "200" ]; then
             EXISTING_MANIFEST="existing-latest.json"
-          else
+          elif [ "$HTTP_STATUS" = "404" ]; then
             rm -f existing-latest.json
+          else
+            echo "::error::Failed to fetch existing updater/latest.json (HTTP ${HTTP_STATUS}); refusing to overwrite live manifest"
+            exit 1
           fi
 
           node scripts-workflow/generate-r2-updater-manifest.mjs \
@@ -279,6 +311,7 @@ jobs:
             --tag "$RELEASE_TAG" \
             --version "$RELEASE_VERSION" \
             --base-url "$R2_BASE_URL" \
+            --updater-prefix "$UPDATER_PREFIX" \
             --pub-date "$BUILD_TIME" \
             ${EXISTING_MANIFEST:+--existing-manifest "$EXISTING_MANIFEST"}
 
@@ -293,6 +326,17 @@ jobs:
             npx --yes wrangler r2 object put "${R2_BUCKET}/releases/${RELEASE_TAG}/${filename}" \
               --file "$file" \
               --remote
+
+            # Upload signed updater payloads to an immutable per-run path so same-version reruns never overwrite live manifest targets.
+            case "$filename" in
+              *-setup.exe|*-setup.exe.sig|*.app.tar.gz|*.app.tar.gz.sig)
+                echo "Uploading ${filename} -> ${R2_BUCKET}/${UPDATER_PREFIX}/${filename}"
+                npx --yes wrangler r2 object put "${R2_BUCKET}/${UPDATER_PREFIX}/${filename}" \
+                  --file "$file" \
+                  --cache-control "public, max-age=31536000, immutable" \
+                  --remote
+                ;;
+            esac
           done
 
           echo "Uploading index.html -> ${R2_BUCKET}/index.html"

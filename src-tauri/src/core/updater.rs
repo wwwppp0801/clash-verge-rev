@@ -286,6 +286,21 @@ async fn download_from(
 }
 
 impl SilentUpdater {
+    fn has_configured_endpoints(app_handle: &tauri::AppHandle) -> bool {
+        app_handle
+            .config()
+            .plugins
+            .0
+            .get("updater")
+            .and_then(|v| v.get("endpoints"))
+            .and_then(|v| v.as_array())
+            .is_some_and(|endpoints| {
+                endpoints
+                    .iter()
+                    .any(|e| e.as_str().is_some_and(|s| !s.trim().is_empty()))
+            })
+    }
+
     /// Checks the server; Windows receives `/LANG` to suppress the NSIS language dialog,
     /// see `packages/windows/installer.nsi`.
     async fn check(app_handle: &tauri::AppHandle) -> Result<Option<Update>> {
@@ -307,6 +322,9 @@ impl SilentUpdater {
 
     /// Installs a newer cached update before normal startup, if the user confirms.
     pub async fn try_install_on_startup(&self, app_handle: &tauri::AppHandle) -> bool {
+        if !Self::has_configured_endpoints(app_handle) {
+            return false;
+        }
         if !Config::verge().await.latest_arc().auto_check_update.unwrap_or(true) {
             Self::delete_cache();
             return false;
@@ -662,6 +680,14 @@ impl SilentUpdater {
     }
 
     pub async fn start_background_check(&self, app_handle: tauri::AppHandle) {
+        if !Self::has_configured_endpoints(&app_handle) {
+            logging!(
+                debug,
+                Type::System,
+                "Silent updater: no updater endpoints configured, skipping background task"
+            );
+            return;
+        }
         // Permanent watcher: daily update cycles for the lifetime of the app.
         logging!(info, Type::System, "Silent updater: background task started");
 

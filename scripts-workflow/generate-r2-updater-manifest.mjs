@@ -95,25 +95,6 @@ export function mapArtifactToPlatformKeys(filename) {
     )
   }
 
-  if (lower.endsWith('amd64.deb')) {
-    return ['linux-x86_64', 'linux-x86_64-deb']
-  }
-  if (lower.endsWith('arm64.deb')) {
-    return ['linux-aarch64', 'linux-aarch64-deb']
-  }
-  if (lower.endsWith('x86_64.rpm')) {
-    return ['linux-x86_64-rpm']
-  }
-  if (lower.endsWith('aarch64.rpm')) {
-    return ['linux-aarch64-rpm']
-  }
-  if (lower.endsWith('amd64.appimage') || lower.endsWith('x86_64.appimage')) {
-    return ['linux-x86_64-appimage']
-  }
-  if (lower.endsWith('aarch64.appimage') || lower.endsWith('arm64.appimage')) {
-    return ['linux-aarch64-appimage']
-  }
-
   return null
 }
 
@@ -127,6 +108,7 @@ export function buildUpdaterManifest({
   tag,
   version,
   baseUrl,
+  updaterPrefix = '',
   pubDate,
   notes,
   existingManifest = null,
@@ -141,6 +123,9 @@ export function buildUpdaterManifest({
   }
 
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, '')
+  const normalizedPrefix = (
+    updaterPrefix || `releases/${encodeURIComponent(tag)}`
+  ).replace(/^\/+|\/+$/g, '')
   const files = fs
     .readdirSync(artifactsDir, { withFileTypes: true })
     .filter((entry) => entry.isFile())
@@ -183,7 +168,7 @@ export function buildUpdaterManifest({
       throw new Error(`Empty signature file: ${sigName}`)
     }
 
-    const url = `${normalizedBaseUrl}/releases/${encodeURIComponent(tag)}/${encodeURIComponent(name)}`
+    const url = `${normalizedBaseUrl}/${normalizedPrefix}/${encodeURIComponent(name)}`
     for (const key of keys) {
       platforms[key] = { signature, url }
     }
@@ -221,6 +206,17 @@ export function buildUpdaterManifest({
         action: 'merged-same-version',
       }
     }
+    if (cmp > 0 && existingManifest.platforms) {
+      const existingKeys = Object.keys(existingManifest.platforms)
+      const omittedPlatforms = existingKeys.filter((k) => !(k in platforms))
+      if (omittedPlatforms.length > 0) {
+        return {
+          manifest: existingManifest,
+          action: 'preserved-incomplete-partial',
+          omittedPlatforms,
+        }
+      }
+    }
   }
 
   if (Object.keys(platforms).length === 0) {
@@ -247,6 +243,7 @@ function parseArgs(argv) {
     tag: process.env.RELEASE_TAG || '',
     version: process.env.RELEASE_VERSION || '',
     baseUrl: process.env.R2_BASE_URL || 'https://clash.wangp.org',
+    updaterPrefix: process.env.UPDATER_PREFIX || '',
     pubDate: process.env.BUILD_TIME || new Date().toISOString(),
     notes: '',
     existingManifest: '',
@@ -270,6 +267,9 @@ function parseArgs(argv) {
       i += 1
     } else if (key === '--base-url') {
       args.baseUrl = next
+      i += 1
+    } else if (key === '--updater-prefix') {
+      args.updaterPrefix = next
       i += 1
     } else if (key === '--pub-date') {
       args.pubDate = next
@@ -306,15 +306,22 @@ function loadExistingManifest(filePath) {
 function main() {
   const args = parseArgs(process.argv)
   const existingManifest = loadExistingManifest(args.existingManifest)
-  const { manifest, action } = buildUpdaterManifest({
+  const { manifest, action, omittedPlatforms } = buildUpdaterManifest({
     artifactsDir: args.artifactsDir,
     tag: args.tag,
     version: args.version,
     baseUrl: args.baseUrl,
+    updaterPrefix: args.updaterPrefix,
     pubDate: args.pubDate,
     notes: args.notes,
     existingManifest,
   })
+
+  if (action === 'preserved-incomplete-partial') {
+    console.warn(
+      `Warning: preserving existing updater manifest v${manifest.version} because partial release v${args.version} omits previously covered platforms: ${omittedPlatforms.join(', ')}`,
+    )
+  }
 
   fs.mkdirSync(path.dirname(args.out), { recursive: true })
   fs.writeFileSync(args.out, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
