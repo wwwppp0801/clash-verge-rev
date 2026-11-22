@@ -43,17 +43,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "push" ]; then
-            TAG="${{ github.ref_name }}"
-          elif [ -n "${{ inputs.version }}" ]; then
+          if [ -n "${{ inputs.version }}" ]; then
             TAG="${{ inputs.version }}"
           else
             PKG_VERSION="$(node -p "require('./package.json').version || ''" 2>/dev/null || true)"
             if [ -n "$PKG_VERSION" ]; then
-              TAG="v${PKG_VERSION}"
+              TAG="v${PKG_VERSION}-wp.${{ github.run_number }}"
             else
-              SHORT_SHA="$(git rev-parse --short HEAD)"
-              TAG="dev-${SHORT_SHA}"
+              TAG="v0.0.0-wp.${{ github.run_number }}"
             fi
           fi
           VERSION="${TAG#v}"
@@ -136,8 +133,19 @@ jobs:
         shell: bash
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
+          BUILD_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          printf '{"bundle":{"createUpdaterArtifacts":false}}\n' > tauri.no-updater.conf.json
+          node -e '
+            const fs = require("fs");
+            const v = process.env.BUILD_VERSION;
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            pkg.version = v;
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+            fs.writeFileSync("tauri.no-updater.conf.json", JSON.stringify({
+              version: v,
+              bundle: { createUpdaterArtifacts: false }
+            }) + "\n");
+          '
           pnpm build --target ${{ matrix.target }} --config tauri.no-updater.conf.json
 
       - name: Collect installer artifacts
