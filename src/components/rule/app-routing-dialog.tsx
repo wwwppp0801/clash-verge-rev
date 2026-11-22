@@ -1,4 +1,8 @@
-import { AddOutlined, AppsOutlined } from '@mui/icons-material'
+import {
+  AddOutlined,
+  AppsOutlined,
+  FolderOpenOutlined,
+} from '@mui/icons-material'
 import {
   Alert,
   Box,
@@ -20,6 +24,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useLockFn } from 'ahooks'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,6 +33,7 @@ import { useVerge } from '@/hooks/use-verge'
 import { enhanceProfiles, listInstalledApps } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
+import getSystem from '@/utils/get-system'
 
 interface AppRoutingDialogProps {
   open: boolean
@@ -46,11 +52,32 @@ interface AppEntry {
 
 type FilterMode = 'all' | 'configured'
 
+function normalizePath(raw: string, isWindows: boolean): string {
+  const trimmed = raw.trim()
+  const unquoted =
+    trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2
+      ? trimmed.slice(1, -1).trim()
+      : trimmed
+  if (!isWindows) return unquoted
+  return unquoted.replace(/^\\\\\?\\/, '').replace(/\//g, '\\')
+}
+
+function pathKey(raw: string, isWindows: boolean): string {
+  const normalized = normalizePath(raw, isWindows)
+  return isWindows ? normalized.toLowerCase() : normalized
+}
+
 function deriveNameFromPath(appPath: string): string {
-  const normalized = appPath.replace(/\/+$/, '')
-  const segments = normalized.split('/')
+  const normalized = appPath.replace(/[/\\]+$/, '')
+  const segments = normalized.split(/[/\\]/)
   const last = segments[segments.length - 1] || normalized
-  return last.endsWith('.app') ? last.slice(0, -4) : last
+  if (
+    last.toLowerCase().endsWith('.app') ||
+    last.toLowerCase().endsWith('.exe')
+  ) {
+    return last.slice(0, -4)
+  }
+  return last
 }
 
 export const AppRoutingDialog = ({
@@ -62,6 +89,7 @@ export const AppRoutingDialog = ({
   const { t } = useTranslation()
   const { verge, patchVerge } = useVerge()
 
+  const isWindows = getSystem() === 'windows'
   const defaultPolicy = policyOptions[0] ?? 'DIRECT'
 
   const [installedApps, setInstalledApps] = useState<IInstalledApp[]>([])
@@ -74,9 +102,11 @@ export const AppRoutingDialog = ({
   const [draftMap, setDraftMap] = useState<Record<string, AppEntry>>(() => {
     const initial: Record<string, AppEntry> = {}
     for (const rule of verge?.app_routing ?? []) {
-      initial[rule.path] = {
+      const normalized = normalizePath(rule.path, isWindows)
+      const key = pathKey(normalized, isWindows)
+      initial[key] = {
         name: rule.name,
-        path: rule.path,
+        path: normalized,
         bundle_id: rule.bundle_id,
         policy: rule.policy || defaultPolicy,
         enabled: rule.enabled,
@@ -113,26 +143,28 @@ export const AppRoutingDialog = ({
     const byPath = new Map<string, AppEntry>()
 
     for (const app of installedApps) {
-      const existing = draftMap[app.path]
-      byPath.set(app.path, {
+      const normalized = normalizePath(app.path, isWindows)
+      const key = pathKey(normalized, isWindows)
+      const existing = draftMap[key]
+      byPath.set(key, {
         name: existing?.name || app.name,
-        path: app.path,
+        path: normalized,
         bundle_id: app.bundle_id ?? existing?.bundle_id,
         policy: existing?.policy ?? '',
         enabled: existing?.enabled ?? false,
       })
     }
 
-    for (const entry of Object.values(draftMap)) {
-      if (!byPath.has(entry.path)) {
-        byPath.set(entry.path, entry)
+    for (const [key, entry] of Object.entries(draftMap)) {
+      if (!byPath.has(key)) {
+        byPath.set(key, entry)
       }
     }
 
     return Array.from(byPath.values()).sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
     )
-  }, [installedApps, draftMap])
+  }, [installedApps, draftMap, isWindows])
 
   const filteredApps = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -153,9 +185,10 @@ export const AppRoutingDialog = ({
   )
 
   const handleToggle = (app: AppEntry, checked: boolean) => {
+    const key = pathKey(app.path, isWindows)
     setDraftMap((prev) => ({
       ...prev,
-      [app.path]: {
+      [key]: {
         name: app.name,
         path: app.path,
         bundle_id: app.bundle_id,
@@ -166,9 +199,10 @@ export const AppRoutingDialog = ({
   }
 
   const handlePolicyChange = (app: AppEntry, nextPolicy: string) => {
+    const key = pathKey(app.path, isWindows)
     setDraftMap((prev) => ({
       ...prev,
-      [app.path]: {
+      [key]: {
         name: app.name,
         path: app.path,
         bundle_id: app.bundle_id,
@@ -178,21 +212,43 @@ export const AppRoutingDialog = ({
     }))
   }
 
-  const handleAddCustomPath = () => {
-    const trimmed = customPath.trim()
-    if (!trimmed) return
-    const name = deriveNameFromPath(trimmed)
+  const addPathToDraft = (rawPath: string) => {
+    const normalized = normalizePath(rawPath, isWindows)
+    if (!normalized) return
+    const key = pathKey(normalized, isWindows)
+    const name = deriveNameFromPath(normalized)
     setDraftMap((prev) => ({
       ...prev,
-      [trimmed]: {
-        name,
-        path: trimmed,
-        policy: prev[trimmed]?.policy || defaultPolicy,
+      [key]: {
+        name: prev[key]?.name || name,
+        path: normalized,
+        bundle_id: prev[key]?.bundle_id,
+        policy: prev[key]?.policy || defaultPolicy,
         enabled: true,
       },
     }))
+  }
+
+  const handleAddCustomPath = () => {
+    if (!customPath.trim()) return
+    addPathToDraft(customPath)
     setCustomPath('')
   }
+
+  const handleBrowseExe = useLockFn(async () => {
+    try {
+      const selected = await openDialog({
+        multiple: false,
+        directory: false,
+        filters: [{ name: 'Executable', extensions: ['exe'] }],
+      })
+      if (typeof selected === 'string' && selected.trim()) {
+        addPathToDraft(selected)
+      }
+    } catch (err) {
+      showNotice.error(err, 3000)
+    }
+  })
 
   const handleSave = useLockFn(async () => {
     setSaving(true)
@@ -232,7 +288,9 @@ export const AppRoutingDialog = ({
       <DialogContent dividers>
         <Stack spacing={1.5}>
           <Alert severity="info" sx={{ py: 0.5 }}>
-            {t('rules.modals.appRouting.info')}
+            {isWindows
+              ? t('rules.modals.appRouting.infoWindows')
+              : t('rules.modals.appRouting.info')}
           </Alert>
 
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -265,7 +323,11 @@ export const AppRoutingDialog = ({
             <TextField
               size="small"
               fullWidth
-              placeholder={t('rules.modals.appRouting.customPath.placeholder')}
+              placeholder={
+                isWindows
+                  ? t('rules.modals.appRouting.customPath.placeholderWindows')
+                  : t('rules.modals.appRouting.customPath.placeholder')
+              }
               value={customPath}
               onChange={(e) => setCustomPath(e.target.value)}
               onKeyDown={(e) => {
@@ -285,6 +347,17 @@ export const AppRoutingDialog = ({
             >
               {t('rules.modals.appRouting.customPath.add')}
             </Button>
+            {isWindows && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<FolderOpenOutlined />}
+                onClick={handleBrowseExe}
+                sx={{ flexShrink: 0, height: 40 }}
+              >
+                {t('rules.modals.appRouting.customPath.browse')}
+              </Button>
+            )}
           </Stack>
 
           {loading ? (

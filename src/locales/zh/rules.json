@@ -110,6 +110,7 @@
     "appRouting": {
       "title": "分应用代理",
       "info": "建议开启 TUN 模式以获得完整的应用及 UDP 代理覆盖。规则会自动以最高优先级前置注入，并自动启用 find-process-mode: strict。注意：部分 macOS 系统转发应用（如 Safari、App Store）可能无法按进程路径匹配。",
+      "infoWindows": "建议开启 TUN 模式以获得完整的桌面应用及 UDP 代理覆盖。规则会自动以最高优先级前置注入，并自动启用 find-process-mode: strict。注意：支持常见桌面可执行程序（.exe），Microsoft Store / UWP 应用可能无法按进程路径匹配。",
       "searchPlaceholder": "按应用名称或路径搜索...",
       "filters": {
         "all": "全部",
@@ -117,7 +118,9 @@
       },
       "customPath": {
         "placeholder": "自定义应用路径（如 /opt/homebrew/bin/curl 或 /path/to/My.app）",
-        "add": "添加路径"
+        "placeholderWindows": "自定义程序路径（如 C:\\Program Files\\App\\app.exe）",
+        "add": "添加路径",
+        "browse": "选择 .exe"
       },
       "policyPlaceholder": "选择策略",
       "empty": "未找到匹配的应用",

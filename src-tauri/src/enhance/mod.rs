@@ -861,13 +861,29 @@ fn escape_regex_meta(input: &str) -> std::string::String {
     escaped
 }
 
+fn normalize_app_routing_path(raw: &str) -> String {
+    let trimmed = raw.trim();
+    let unquoted = trimmed
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .map(str::trim)
+        .unwrap_or(trimmed);
+    let stripped = unquoted.strip_prefix(r"\\?\").unwrap_or(unquoted);
+    let bytes = stripped.as_bytes();
+    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        stripped.replace('/', r"\")
+    } else {
+        stripped.to_owned()
+    }
+}
+
 fn apply_app_routing(mut config: Mapping, app_routing: &[AppRoutingRule]) -> Mapping {
     let mut generated: Vec<Value> = Vec::new();
     for rule in app_routing {
         if !rule.enabled {
             continue;
         }
-        let path = rule.path.trim();
+        let path = normalize_app_routing_path(&rule.path);
         let policy = rule.policy.trim();
         if path.is_empty()
             || policy.is_empty()
@@ -878,7 +894,7 @@ fn apply_app_routing(mut config: Mapping, app_routing: &[AppRoutingRule]) -> Map
         }
 
         let rule_str = if path.ends_with(".app") {
-            let escaped = escape_regex_meta(path);
+            let escaped = escape_regex_meta(&path);
             format!("PROCESS-PATH-REGEX,^{escaped}/Contents/,{policy}")
         } else {
             format!("PROCESS-PATH,{path},{policy}")

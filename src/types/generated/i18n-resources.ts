@@ -691,7 +691,9 @@ export interface TranslationResources {
         appRouting: {
           customPath: {
             add: string
+            browse: string
             placeholder: string
+            placeholderWindows: string
           }
           empty: string
           filters: {
@@ -699,6 +701,7 @@ export interface TranslationResources {
             configured: string
           }
           info: string
+          infoWindows: string
           loading: string
           policyPlaceholder: string
           searchPlaceholder: string
