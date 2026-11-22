@@ -297,6 +297,7 @@ impl SilentUpdater {
     }
 
     /// Installs a newer cached update before normal startup, if the user confirms.
+    #[allow(dead_code, reason = "This fork disables automatic updater startup")]
     pub async fn try_install_on_startup(&self, app_handle: &tauri::AppHandle) -> bool {
         if !Config::verge().await.latest_arc().auto_check_update.unwrap_or(true) {
             Self::delete_cache();
@@ -653,6 +654,7 @@ impl SilentUpdater {
         Ok(())
     }
 
+    #[allow(dead_code, reason = "This fork disables automatic updater startup")]
     pub async fn start_background_check(&self, app_handle: tauri::AppHandle) {
         // Permanent watcher: daily update cycles for the lifetime of the app.
         logging!(info, Type::System, "Silent updater: background task started");
