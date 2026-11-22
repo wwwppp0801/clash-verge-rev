@@ -24,7 +24,10 @@ test('compareSemver orders numeric prereleases wp.9 < wp.10 < stable', () => {
 test('buildUpdaterManifest maps signed Windows NSIS and macOS tar.gz while ignoring manual DMG', () => {
   const dir = makeTempDir()
   try {
-    fs.writeFileSync(path.join(dir, 'Clash.Verge_2.6.0-wp.10_x64-setup.exe'), 'exe')
+    fs.writeFileSync(
+      path.join(dir, 'Clash.Verge_2.6.0-wp.10_x64-setup.exe'),
+      'exe',
+    )
     fs.writeFileSync(
       path.join(dir, 'Clash.Verge_2.6.0-wp.10_x64-setup.exe.sig'),
       'WIN_SIG\n',
@@ -37,7 +40,10 @@ test('buildUpdaterManifest maps signed Windows NSIS and macOS tar.gz while ignor
       path.join(dir, 'Clash.Verge_2.6.0-wp.10_aarch64.app.tar.gz.sig'),
       'MAC_SIG\n',
     )
-    fs.writeFileSync(path.join(dir, 'Clash.Verge_2.6.0-wp.10_aarch64.dmg'), 'dmg')
+    fs.writeFileSync(
+      path.join(dir, 'Clash.Verge_2.6.0-wp.10_aarch64.dmg'),
+      'dmg',
+    )
 
     const { manifest, action } = buildUpdaterManifest({
       artifactsDir: dir,
@@ -75,7 +81,10 @@ test('buildUpdaterManifest maps signed Windows NSIS and macOS tar.gz while ignor
 test('buildUpdaterManifest rejects missing or empty signatures', () => {
   const dir = makeTempDir()
   try {
-    fs.writeFileSync(path.join(dir, 'Clash.Verge_2.6.0-wp.10_x64-setup.exe'), 'exe')
+    fs.writeFileSync(
+      path.join(dir, 'Clash.Verge_2.6.0-wp.10_x64-setup.exe'),
+      'exe',
+    )
     assert.throws(
       () =>
         buildUpdaterManifest({
@@ -111,7 +120,10 @@ test('buildUpdaterManifest rejects missing or empty signatures', () => {
 test('buildUpdaterManifest handles same-version merge, higher-version preservation, and version bump', () => {
   const dir = makeTempDir()
   try {
-    fs.writeFileSync(path.join(dir, 'Clash.Verge_2.6.0-wp.10_x64-setup.exe'), 'exe')
+    fs.writeFileSync(
+      path.join(dir, 'Clash.Verge_2.6.0-wp.10_x64-setup.exe'),
+      'exe',
+    )
     fs.writeFileSync(
       path.join(dir, 'Clash.Verge_2.6.0-wp.10_x64-setup.exe.sig'),
       'WIN_SIG',
@@ -122,7 +134,10 @@ test('buildUpdaterManifest handles same-version merge, higher-version preservati
       notes: 'existing',
       pub_date: '2026-04-15T00:00:00Z',
       platforms: {
-        'darwin-aarch64': { signature: 'MAC_SIG', url: 'https://clash.wangp.org/mac' },
+        'darwin-aarch64': {
+          signature: 'MAC_SIG',
+          url: 'https://clash.wangp.org/mac',
+        },
       },
     }
     const merged = buildUpdaterManifest({
@@ -142,7 +157,10 @@ test('buildUpdaterManifest handles same-version merge, higher-version preservati
       notes: 'newer',
       pub_date: '2026-04-17T00:00:00Z',
       platforms: {
-        'darwin-aarch64': { signature: 'MAC_SIG', url: 'https://clash.wangp.org/mac11' },
+        'darwin-aarch64': {
+          signature: 'MAC_SIG',
+          url: 'https://clash.wangp.org/mac11',
+        },
       },
     }
     const preserved = buildUpdaterManifest({
@@ -161,7 +179,10 @@ test('buildUpdaterManifest handles same-version merge, higher-version preservati
       notes: 'older',
       pub_date: '2026-04-14T00:00:00Z',
       platforms: {
-        'darwin-aarch64': { signature: 'OLD_MAC', url: 'https://clash.wangp.org/mac9' },
+        'darwin-aarch64': {
+          signature: 'OLD_MAC',
+          url: 'https://clash.wangp.org/mac9',
+        },
       },
     }
     const partialNewer = buildUpdaterManifest({
