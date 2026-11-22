@@ -169,7 +169,8 @@
     "nodes": {
       "title": "节点列表",
       "actions": {
-        "addNode": "添加节点"
+        "addNode": "添加节点",
+        "duplicateNode": "复制节点"
       },
       "labels": {
         "empty": "当前配置暂无节点，点击「添加节点」即可创建。",
@@ -179,6 +180,7 @@
       "dialog": {
         "addTitle": "添加节点",
         "editTitle": "编辑节点",
+        "duplicateTitle": "复制节点",
         "shareUri": "分享链接",
         "parseUri": "解析",
         "addToGroups": "自动加入代理组（select / url-test / fallback）"

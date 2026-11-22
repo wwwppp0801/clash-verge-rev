@@ -252,8 +252,11 @@ const formStateToNode = (
   return base
 }
 
+export type NodeFormMode = 'add' | 'edit' | 'duplicate'
+
 export interface NodeFormDialogProps {
   open: boolean
+  mode: NodeFormMode
   initialNode?: RawProxyNode | null
   existingNames: string[]
   saving: boolean
@@ -266,6 +269,7 @@ export interface NodeFormDialogProps {
 
 export const NodeFormDialog = ({
   open,
+  mode,
   initialNode,
   existingNames,
   saving,
@@ -273,13 +277,16 @@ export const NodeFormDialog = ({
   onSubmit,
 }: NodeFormDialogProps) => {
   const { t } = useTranslation()
-  const isEdit = Boolean(initialNode)
+  const isEdit = mode === 'edit'
+  const isDuplicate = mode === 'duplicate'
 
   const [form, setForm] = useState<NodeFormState>(() =>
     nodeToFormState(initialNode),
   )
   const [uriInput, setUriInput] = useState('')
-  const [parsedExtra, setParsedExtra] = useState<RawProxyNode | null>(null)
+  const [parsedExtra, setParsedExtra] = useState<RawProxyNode | null>(() =>
+    isDuplicate ? (initialNode ?? null) : null,
+  )
   const [addToGroups, setAddToGroups] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -317,7 +324,7 @@ export const NodeFormDialog = ({
     }
     if (
       existingNames.includes(trimmedName) &&
-      trimmedName !== initialNode?.name
+      (!isEdit || trimmedName !== initialNode?.name)
     ) {
       setErrorMsg(t('home.components.nodes.errors.nameDuplicate'))
       return
@@ -333,7 +340,7 @@ export const NodeFormDialog = ({
 
     const node = formStateToNode(form, isEdit ? null : parsedExtra)
     await onSubmit(node, {
-      originalName: initialNode?.name,
+      originalName: isEdit ? initialNode?.name : undefined,
       addToGroups,
     })
   }
@@ -352,7 +359,9 @@ export const NodeFormDialog = ({
       <DialogTitle>
         {isEdit
           ? t('home.components.nodes.dialog.editTitle')
-          : t('home.components.nodes.dialog.addTitle')}
+          : isDuplicate
+            ? t('home.components.nodes.dialog.duplicateTitle')
+            : t('home.components.nodes.dialog.addTitle')}
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>

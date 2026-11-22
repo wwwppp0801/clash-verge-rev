@@ -1,5 +1,6 @@
 import {
   AddOutlined,
+  ContentCopyRounded,
   DeleteOutlined,
   EditOutlined,
   HubOutlined,
@@ -43,7 +44,20 @@ import {
 } from '@/utils/profile-nodes'
 
 import { EnhancedCard } from './enhanced-card'
-import { NodeFormDialog } from './node-form-dialog'
+import { NodeFormDialog, type NodeFormMode } from './node-form-dialog'
+
+const getDuplicateNodeName = (baseName: string, existingNames: string[]) => {
+  const existingSet = new Set(existingNames)
+  const firstCandidate = `${baseName}-copy`
+  if (!existingSet.has(firstCandidate)) {
+    return firstCandidate
+  }
+  let index = 2
+  while (existingSet.has(`${baseName}-copy-${index}`)) {
+    index += 1
+  }
+  return `${baseName}-copy-${index}`
+}
 
 interface HomeNodesCardProps {
   current: IProfileItem | null | undefined
@@ -66,6 +80,7 @@ export const HomeNodesCard = ({
   const [saving, setSaving] = useState(false)
   const [searchText, setSearchText] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogMode, setDialogMode] = useState<NodeFormMode>('add')
   const [editingNode, setEditingNode] = useState<RawProxyNode | null>(null)
 
   const currentUid = current?.uid
@@ -116,14 +131,28 @@ export const HomeNodesCard = ({
   }, [nodes, searchText])
 
   const openAddDialog = useCallback(() => {
+    setDialogMode('add')
     setEditingNode(null)
     setDialogOpen(true)
   }, [])
 
   const openEditDialog = useCallback((node: RawProxyNode) => {
+    setDialogMode('edit')
     setEditingNode(node)
     setDialogOpen(true)
   }, [])
+
+  const openDuplicateDialog = useCallback(
+    (node: RawProxyNode) => {
+      setDialogMode('duplicate')
+      setEditingNode({
+        ...node,
+        name: getDuplicateNodeName(node.name, existingNames),
+      })
+      setDialogOpen(true)
+    },
+    [existingNames],
+  )
 
   const closeDialog = useCallback(() => {
     setDialogOpen(false)
@@ -391,6 +420,20 @@ export const HomeNodesCard = ({
                         spacing={0.5}
                         sx={{ flexShrink: 0 }}
                       >
+                        <Tooltip
+                          title={t(
+                            'home.components.nodes.actions.duplicateNode',
+                          )}
+                          arrow
+                        >
+                          <IconButton
+                            size="small"
+                            disabled={saving}
+                            onClick={() => openDuplicateDialog(node)}
+                          >
+                            <ContentCopyRounded fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                         <Tooltip title={t('shared.actions.edit')} arrow>
                           <IconButton
                             size="small"
@@ -422,8 +465,9 @@ export const HomeNodesCard = ({
 
       {dialogOpen && (
         <NodeFormDialog
-          key={editingNode?.name ?? '__new__'}
+          key={`${dialogMode}:${editingNode?.name ?? '__new__'}`}
           open={dialogOpen}
+          mode={dialogMode}
           initialNode={editingNode}
           existingNames={existingNames}
           saving={saving}

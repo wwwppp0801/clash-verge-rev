@@ -113,10 +113,12 @@ export interface TranslationResources {
         nodes: {
           actions: {
             addNode: string
+            duplicateNode: string
           }
           dialog: {
             addTitle: string
             addToGroups: string
+            duplicateTitle: string
             editTitle: string
             parseUri: string
             shareUri: string
