@@ -110,6 +110,58 @@ export interface TranslationResources {
           }
           title: string
         }
+        nodes: {
+          actions: {
+            addNode: string
+          }
+          dialog: {
+            addTitle: string
+            addToGroups: string
+            editTitle: string
+            parseUri: string
+            shareUri: string
+          }
+          errors: {
+            nameDuplicate: string
+            nameRequired: string
+            portInvalid: string
+            serverRequired: string
+            uriParseFailed: string
+          }
+          fields: {
+            cipher: string
+            name: string
+            network: string
+            password: string
+            port: string
+            protocol: string
+            server: string
+            skipCertVerify: string
+            username: string
+          }
+          labels: {
+            empty: string
+            noMatch: string
+            searchPlaceholder: string
+          }
+          messages: {
+            nodeAdded: string
+            nodeDeleted: string
+            nodeUpdated: string
+            uriParsed: string
+          }
+          title: string
+        }
+        profile: {
+          actions: {
+            exportConfig: string
+            importConfig: string
+          }
+          messages: {
+            exportSuccess: string
+            importSuccess: string
+          }
+        }
         proxyTun: {
           status: {
             systemProxyDisabled: string
@@ -180,6 +232,7 @@ export interface TranslationResources {
             currentProxy: string
             ip: string
             network: string
+            nodes: string
             profile: string
             proxyMode: string
             systemInfo: string

@@ -2,6 +2,8 @@ import {
   CloudUploadOutlined,
   DnsOutlined,
   EventOutlined,
+  FileDownloadOutlined,
+  FileUploadOutlined,
   LaunchOutlined,
   SpeedOutlined,
   StorageOutlined,
@@ -10,22 +12,35 @@ import {
 import {
   Box,
   Button,
+  IconButton,
   LinearProgress,
   Link,
   Stack,
+  Tooltip,
   Typography,
   alpha,
   keyframes,
   useTheme,
 } from '@mui/material'
+import {
+  open as openDialog,
+  save as saveDialog,
+} from '@tauri-apps/plugin-dialog'
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { useLockFn } from 'ahooks'
 import dayjs from 'dayjs'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
+import { useProfiles } from '@/hooks/use-profiles'
 import { useAppRefreshers } from '@/providers/app-data-context'
-import { updateProfile } from '@/services/cmds'
+import {
+  createProfile,
+  getProfiles,
+  readProfileFile,
+  updateProfile,
+} from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
 import { isValidUrl } from '@/utils/network'
@@ -269,10 +284,13 @@ export const HomeProfileCard = ({
 }: HomeProfileCardProps) => {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { patchProfiles } = useProfiles()
   const { refreshAll } = useAppRefreshers()
 
   // 更新当前订阅
   const [updating, setUpdating] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const onUpdateProfile = useLockFn(async () => {
     if (!current?.uid) return
@@ -294,6 +312,86 @@ export const HomeProfileCard = ({
       showNotice.error(err, 3000)
     } finally {
       setUpdating(false)
+    }
+  })
+
+  const onImportConfig = useLockFn(async () => {
+    setImporting(true)
+    try {
+      const selected = await openDialog({
+        multiple: false,
+        filters: [{ name: 'YAML', extensions: ['yaml', 'yml'] }],
+      })
+      if (!selected || Array.isArray(selected)) return
+
+      const content = await readTextFile(selected)
+      const fileName =
+        selected
+          .split(/[\\/]/u)
+          .pop()
+          ?.replace(/\.(ya?ml)$/iu, '')
+          .trim() || 'Local Profile'
+
+      const beforeProfiles = await getProfiles().catch(() => null)
+      const existingUids = new Set(
+        (beforeProfiles?.items ?? []).map((item) => item.uid),
+      )
+
+      await mutate(
+        () =>
+          createProfile(
+            {
+              type: 'local',
+              name: fileName,
+              desc: '',
+            },
+            content,
+          ),
+        {
+          id: 'home-import-profile-yaml',
+          errorNotice: false,
+        },
+      )
+
+      const afterProfiles = await getProfiles()
+      const created =
+        afterProfiles.items?.find((item) => !existingUids.has(item.uid)) ??
+        afterProfiles.items?.[afterProfiles.items.length - 1]
+      if (created?.uid) {
+        await patchProfiles({ current: created.uid })
+      }
+
+      onProfileUpdated?.()
+      refreshAll()
+      showNotice.success(t('home.components.profile.messages.importSuccess'))
+    } catch (err) {
+      showNotice.error(err, 3000)
+    } finally {
+      setImporting(false)
+    }
+  })
+
+  const onExportConfig = useLockFn(async () => {
+    if (!current?.uid) return
+
+    setExporting(true)
+    try {
+      const content = await readProfileFile(current.uid)
+      const safeName = (current.name || 'profile')
+        .replace(/[<>:"/\\|?*]/gu, '_')
+        .trim()
+      const targetPath = await saveDialog({
+        defaultPath: `${safeName || 'profile'}.yaml`,
+        filters: [{ name: 'YAML', extensions: ['yaml', 'yml'] }],
+      })
+      if (!targetPath) return
+
+      await writeTextFile(targetPath, content)
+      showNotice.success(t('home.components.profile.messages.exportSuccess'))
+    } catch (err) {
+      showNotice.error(err, 3000)
+    } finally {
+      setExporting(false)
     }
   })
 
@@ -346,21 +444,62 @@ export const HomeProfileCard = ({
   }, [current, t])
 
   // 卡片操作按钮
-  const cardAction = useMemo(() => {
-    if (!current) return null
-
-    return (
-      <Button
-        variant="outlined"
-        size="small"
-        onClick={goToProfiles}
-        endIcon={<StorageOutlined fontSize="small" />}
-        sx={{ borderRadius: 1.5 }}
-      >
-        {t('layout.components.navigation.tabs.profiles')}
-      </Button>
-    )
-  }, [current, goToProfiles, t])
+  const cardAction = useMemo(
+    () => (
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+        <Tooltip
+          title={t('home.components.profile.actions.importConfig')}
+          arrow
+        >
+          <span>
+            <IconButton
+              size="small"
+              onClick={onImportConfig}
+              disabled={importing}
+              color="primary"
+            >
+              <FileUploadOutlined fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip
+          title={t('home.components.profile.actions.exportConfig')}
+          arrow
+        >
+          <span>
+            <IconButton
+              size="small"
+              onClick={onExportConfig}
+              disabled={!current?.uid || exporting}
+              color="primary"
+            >
+              <FileDownloadOutlined fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        {current && (
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={goToProfiles}
+            endIcon={<StorageOutlined fontSize="small" />}
+            sx={{ borderRadius: 1.5 }}
+          >
+            {t('layout.components.navigation.tabs.profiles')}
+          </Button>
+        )}
+      </Stack>
+    ),
+    [
+      current,
+      exporting,
+      goToProfiles,
+      importing,
+      onExportConfig,
+      onImportConfig,
+      t,
+    ],
+  )
 
   return (
     <EnhancedCard

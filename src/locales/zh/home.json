@@ -13,6 +13,7 @@
     "settings": {
       "cards": {
         "profile": "订阅卡",
+        "nodes": "节点管理卡",
         "currentProxy": "当前代理卡",
         "network": "网络设置卡",
         "proxyMode": "代理模式卡",
@@ -153,6 +154,58 @@
         "rule": "基于预设规则智能判断流量走向，提供灵活的代理策略",
         "global": "所有流量均通过代理服务器，适用于需要全局科学上网的场景",
         "direct": "所有流量不经过代理节点，但经过 Clash 内核转发连接目标服务器，适用于需要通过内核进行分流的特定场景"
+      }
+    },
+    "profile": {
+      "actions": {
+        "importConfig": "导入配置 (YAML)",
+        "exportConfig": "导出配置 (YAML)"
+      },
+      "messages": {
+        "importSuccess": "配置导入并切换成功",
+        "exportSuccess": "配置导出成功"
+      }
+    },
+    "nodes": {
+      "title": "节点列表",
+      "actions": {
+        "addNode": "添加节点"
+      },
+      "labels": {
+        "empty": "当前配置暂无节点，点击「添加节点」即可创建。",
+        "searchPlaceholder": "搜索节点名称、协议或服务器地址...",
+        "noMatch": "未找到匹配的节点"
+      },
+      "dialog": {
+        "addTitle": "添加节点",
+        "editTitle": "编辑节点",
+        "shareUri": "分享链接",
+        "parseUri": "解析",
+        "addToGroups": "自动加入代理组（select / url-test / fallback）"
+      },
+      "fields": {
+        "name": "节点名称",
+        "protocol": "协议类型",
+        "server": "服务器地址",
+        "port": "端口",
+        "cipher": "加密方式",
+        "password": "密码",
+        "username": "用户名",
+        "network": "传输协议",
+        "skipCertVerify": "跳过证书验证"
+      },
+      "messages": {
+        "uriParsed": "分享链接解析成功",
+        "nodeAdded": "节点添加成功",
+        "nodeUpdated": "节点更新成功",
+        "nodeDeleted": "节点删除成功"
+      },
+      "errors": {
+        "uriParseFailed": "分享链接解析失败：{{message}}",
+        "nameRequired": "请输入节点名称",
+        "nameDuplicate": "已存在同名节点",
+        "serverRequired": "请输入服务器地址",
+        "portInvalid": "端口必须为 1-65535 之间的整数"
       }
     }
   }

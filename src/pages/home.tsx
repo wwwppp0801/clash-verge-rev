@@ -30,6 +30,7 @@ import { ClashModeCard } from '@/components/home/clash-mode-card'
 import { CurrentProxyCard } from '@/components/home/current-proxy-card'
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import { EnhancedTrafficStats } from '@/components/home/enhanced-traffic-stats'
+import { HomeNodesCard } from '@/components/home/home-nodes-card'
 import { HomeProfileCard } from '@/components/home/home-profile-card'
 import { ProxyTunCard } from '@/components/home/proxy-tun-card'
 import { useProfiles } from '@/hooks/use-profiles'
@@ -74,6 +75,7 @@ export const preloadHomePageCards = () =>
 // 定义首页卡片设置接口
 interface HomeCardsSettings {
   profile: boolean
+  nodes: boolean
   proxy: boolean
   network: boolean
   mode: boolean
@@ -89,6 +91,7 @@ interface HomeCardsSettings {
 const DEFAULT_HOME_CARDS: HomeCardsSettings = {
   info: false,
   profile: true,
+  nodes: true,
   proxy: true,
   network: true,
   mode: true,
@@ -145,6 +148,15 @@ const HomeSettingsDialog = ({
               />
             }
             label={t('home.page.settings.cards.profile')}
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={cards.nodes || false}
+                onChange={() => handleToggle('nodes')}
+              />
+            }
+            label={t('home.page.settings.cards.nodes')}
           />
           <FormControlLabel
             control={
@@ -239,8 +251,13 @@ const HomePage = () => {
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   // 卡片显示状态
-  const homeCards =
-    (verge?.home_cards as HomeCardsSettings | undefined) ?? DEFAULT_HOME_CARDS
+  const homeCards = useMemo<HomeCardsSettings>(
+    () => ({
+      ...DEFAULT_HOME_CARDS,
+      ...(verge?.home_cards as Record<string, boolean> | undefined),
+    }),
+    [verge?.home_cards],
+  )
 
   // 文档链接函数
   const toGithubDoc = useLockFn(() =>
@@ -274,6 +291,11 @@ const HomePage = () => {
         <HomeProfileCard current={current} onProfileUpdated={mutateProfiles} />,
       ),
       renderCard('proxy', <CurrentProxyCard />),
+      renderCard(
+        'nodes',
+        <HomeNodesCard current={current} onProfileUpdated={mutateProfiles} />,
+        12,
+      ),
       renderCard('network', <NetworkSettingsCard />),
       renderCard('mode', <ClashModeEnhancedCard />),
     ],

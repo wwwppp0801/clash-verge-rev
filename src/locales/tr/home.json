@@ -13,6 +13,7 @@
     "settings": {
       "cards": {
         "profile": "Profil Kartı",
+        "nodes": "Nodes Card",
         "currentProxy": "Geçerli Vekil Kartı",
         "network": "Ağ Ayarları Kartı",
         "proxyMode": "Vekil Modu Kartı",
@@ -153,6 +154,58 @@
         "rule": "Vekilleri kural kümesine göre otomatik olarak seçer.",
         "global": "Tüm ağ isteklerini seçili vekil üzerinden iletir.",
         "direct": "Vekili atlar ve internete doğrudan bağlanır."
+      }
+    },
+    "profile": {
+      "actions": {
+        "importConfig": "Import Config (YAML)",
+        "exportConfig": "Export Config (YAML)"
+      },
+      "messages": {
+        "importSuccess": "Configuration imported and activated",
+        "exportSuccess": "Configuration exported successfully"
+      }
+    },
+    "nodes": {
+      "title": "Nodes",
+      "actions": {
+        "addNode": "Add Node"
+      },
+      "labels": {
+        "empty": "No nodes in current profile. Click \"Add Node\" to create one.",
+        "searchPlaceholder": "Search nodes by name, protocol, or server...",
+        "noMatch": "No matching nodes found"
+      },
+      "dialog": {
+        "addTitle": "Add Node",
+        "editTitle": "Edit Node",
+        "shareUri": "Share URI",
+        "parseUri": "Parse",
+        "addToGroups": "Add to proxy groups (select / url-test / fallback)"
+      },
+      "fields": {
+        "name": "Name",
+        "protocol": "Protocol",
+        "server": "Server",
+        "port": "Port",
+        "cipher": "Cipher",
+        "password": "Password",
+        "username": "Username",
+        "network": "Network",
+        "skipCertVerify": "Skip Cert Verify"
+      },
+      "messages": {
+        "uriParsed": "Share URI parsed successfully",
+        "nodeAdded": "Node added successfully",
+        "nodeUpdated": "Node updated successfully",
+        "nodeDeleted": "Node deleted successfully"
+      },
+      "errors": {
+        "uriParseFailed": "Failed to parse URI: {{message}}",
+        "nameRequired": "Node name is required",
+        "nameDuplicate": "A node with this name already exists",
+        "serverRequired": "Server address is required",
+        "portInvalid": "Port must be an integer between 1 and 65535"
       }
     }
   }
