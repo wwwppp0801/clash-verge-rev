@@ -154,9 +154,7 @@ fn version_lte(a: &str, b: &str) -> bool {
             .split('.')
             .filter_map(|part| part.parse::<u64>().ok())
             .collect();
-        let pre_parts = pre
-            .map(|p| p.split('.').map(ToString::to_string).collect())
-            .unwrap_or_default();
+        let pre_parts = pre.map_or_default(|p| p.split('.').map(ToString::to_string).collect());
         (core_parts, pre_parts)
     }
 
