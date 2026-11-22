@@ -152,6 +152,7 @@ export const translationKeys = [
   'home.components.nodes.errors.portInvalid',
   'layout.components.navigation.tabs.home',
   'layout.components.navigation.tabs.proxies',
+  'layout.components.navigation.tabs.nodes',
   'layout.components.navigation.tabs.profiles',
   'layout.components.navigation.tabs.connections',
   'layout.components.navigation.tabs.rules',

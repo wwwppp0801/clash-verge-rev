@@ -4,6 +4,7 @@
       "tabs": {
         "home": "Home",
         "proxies": "Proxies",
+        "nodes": "Nodes",
         "profiles": "Profiles",
         "connections": "Connections",
         "rules": "Rules",

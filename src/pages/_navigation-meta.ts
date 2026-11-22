@@ -4,6 +4,10 @@ export const navigationItems = {
     label: 'layout.components.navigation.tabs.proxies',
     path: '/proxies',
   },
+  nodes: {
+    label: 'layout.components.navigation.tabs.nodes',
+    path: '/nodes',
+  },
   profiles: {
     label: 'layout.components.navigation.tabs.profiles',
     path: '/profile',

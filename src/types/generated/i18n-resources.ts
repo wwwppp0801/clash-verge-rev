@@ -266,6 +266,7 @@ export interface TranslationResources {
             connections: string
             home: string
             logs: string
+            nodes: string
             profiles: string
             proxies: string
             rules: string

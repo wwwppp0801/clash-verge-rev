@@ -3,7 +3,6 @@ import {
   ContentCopyRounded,
   DeleteOutlined,
   EditOutlined,
-  HubOutlined,
   SearchOutlined,
 } from '@mui/icons-material'
 import {
@@ -24,6 +23,11 @@ import { useLockFn } from 'ahooks'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { BasePage } from '@/components/base'
+import {
+  NodeFormDialog,
+  type NodeFormMode,
+} from '@/components/home/node-form-dialog'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useAppRefreshers } from '@/providers/app-data-context'
 import {
@@ -43,9 +47,6 @@ import {
   upsertProfileNode,
 } from '@/utils/profile-nodes'
 
-import { EnhancedCard } from './enhanced-card'
-import { NodeFormDialog, type NodeFormMode } from './node-form-dialog'
-
 const getDuplicateNodeName = (baseName: string, existingNames: string[]) => {
   const existingSet = new Set(existingNames)
   const firstCandidate = `${baseName}-copy`
@@ -59,18 +60,10 @@ const getDuplicateNodeName = (baseName: string, existingNames: string[]) => {
   return `${baseName}-copy-${index}`
 }
 
-interface HomeNodesCardProps {
-  current: IProfileItem | null | undefined
-  onProfileUpdated?: () => void
-}
-
-export const HomeNodesCard = ({
-  current,
-  onProfileUpdated,
-}: HomeNodesCardProps) => {
+const NodesPage = () => {
   const { t } = useTranslation()
   const theme = useTheme()
-  const { patchProfiles } = useProfiles()
+  const { current, mutateProfiles, patchProfiles } = useProfiles()
   const { refreshAll } = useAppRefreshers()
 
   const [loadedState, setLoadedState] = useState<{
@@ -185,7 +178,7 @@ export const HomeNodesCard = ({
                 nextYaml,
               ),
             {
-              id: 'home-nodes-create-local-profile',
+              id: 'nodes-create-local-profile',
               errorNotice: false,
             },
           )
@@ -200,7 +193,7 @@ export const HomeNodesCard = ({
               yaml: nextYaml,
             })
           }
-          onProfileUpdated?.()
+          mutateProfiles()
           refreshAll()
           closeDialog()
           showNotice.success(t('home.components.nodes.messages.nodeAdded'))
@@ -220,7 +213,7 @@ export const HomeNodesCard = ({
           errorNotice: false,
         })
         setLoadedState({ key: loadKey, yaml: nextYaml })
-        onProfileUpdated?.()
+        mutateProfiles()
         refreshAll()
         closeDialog()
         showNotice.success(
@@ -251,7 +244,7 @@ export const HomeNodesCard = ({
         errorNotice: false,
       })
       setLoadedState({ key: loadKey, yaml: nextYaml })
-      onProfileUpdated?.()
+      mutateProfiles()
       refreshAll()
       showNotice.success(t('home.components.nodes.messages.nodeDeleted'))
     } catch (err) {
@@ -261,207 +254,204 @@ export const HomeNodesCard = ({
     }
   })
 
-  const cardTitle = useMemo(
-    () => (
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-        <Typography variant="h6" sx={{ fontWeight: 'medium', fontSize: 18 }}>
-          {t('home.components.nodes.title')}
-        </Typography>
-        <Chip
-          label={nodes.length}
-          size="small"
-          color="primary"
-          variant="outlined"
-          sx={{ height: 22, fontSize: 12 }}
-        />
-      </Stack>
-    ),
-    [nodes.length, t],
-  )
-
-  const cardAction = useMemo(
-    () => (
-      <Button
-        variant="outlined"
-        size="small"
-        startIcon={<AddOutlined fontSize="small" />}
-        onClick={openAddDialog}
-        sx={{ borderRadius: 1.5 }}
-      >
-        {t('home.components.nodes.actions.addNode')}
-      </Button>
-    ),
-    [openAddDialog, t],
-  )
-
   return (
-    <>
-      <EnhancedCard
-        title={cardTitle}
-        icon={<HubOutlined />}
-        iconColor="success"
-        action={cardAction}
-      >
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : nodes.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 3 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              {t('home.components.nodes.labels.empty')}
-            </Typography>
-          </Box>
-        ) : (
-          <Stack spacing={1.5}>
-            <TextField
-              size="small"
-              fullWidth
-              placeholder={t('home.components.nodes.labels.searchPlaceholder')}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchOutlined fontSize="small" color="action" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
+    <BasePage
+      full
+      title={t('home.components.nodes.title')}
+      contentStyle={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        padding: '12px 16px',
+      }}
+      header={
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Chip
+            label={nodes.length}
+            size="small"
+            color="primary"
+            variant="outlined"
+            sx={{ height: 24, fontSize: 12 }}
+          />
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddOutlined fontSize="small" />}
+            disabled={saving}
+            onClick={openAddDialog}
+          >
+            {t('home.components.nodes.actions.addNode')}
+          </Button>
+        </Stack>
+      }
+    >
+      {loading ? (
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <CircularProgress size={28} />
+        </Box>
+      ) : nodes.length === 0 ? (
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            {t('home.components.nodes.labels.empty')}
+          </Typography>
+        </Box>
+      ) : (
+        <Stack spacing={1.5} sx={{ flex: 1, minHeight: 0 }}>
+          <TextField
+            size="small"
+            fullWidth
+            placeholder={t('home.components.nodes.labels.searchPlaceholder')}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchOutlined fontSize="small" color="action" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
 
-            <Box
-              sx={{
-                maxHeight: 300,
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 0.75,
-                pr: 0.5,
-              }}
-            >
-              {filteredNodes.length === 0 ? (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ textAlign: 'center', py: 2 }}
-                >
-                  {t('home.components.nodes.labels.noMatch')}
-                </Typography>
-              ) : (
-                filteredNodes.map((node) => {
-                  const endpoint = node.server
-                    ? node.port !== undefined
-                      ? `${String(node.server)}:${String(node.port)}`
-                      : String(node.server)
-                    : '-'
-                  return (
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.75,
+              pr: 0.5,
+            }}
+          >
+            {filteredNodes.length === 0 ? (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ textAlign: 'center', py: 4 }}
+              >
+                {t('home.components.nodes.labels.noMatch')}
+              </Typography>
+            ) : (
+              filteredNodes.map((node) => {
+                const endpoint = node.server
+                  ? node.port !== undefined
+                    ? `${String(node.server)}:${String(node.port)}`
+                    : String(node.server)
+                  : '-'
+                return (
+                  <Box
+                    key={node.name}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      px: 1.5,
+                      py: 0.75,
+                      borderRadius: 1.5,
+                      border: 1,
+                      borderColor: 'divider',
+                      backgroundColor: alpha(theme.palette.action.hover, 0.04),
+                      '&:hover': {
+                        backgroundColor: theme.palette.action.hover,
+                      },
+                    }}
+                  >
                     <Box
-                      key={node.name}
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        px: 1.5,
-                        py: 0.75,
-                        borderRadius: 1.5,
-                        border: 1,
-                        borderColor: 'divider',
-                        backgroundColor: alpha(
-                          theme.palette.action.hover,
-                          0.04,
-                        ),
-                        '&:hover': {
-                          backgroundColor: theme.palette.action.hover,
-                        },
+                        gap: 1,
+                        minWidth: 0,
+                        flex: 1,
                       }}
                     >
-                      <Box
+                      <Chip
+                        label={node.type.toUpperCase()}
+                        size="small"
                         sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          minWidth: 0,
-                          flex: 1,
+                          height: 20,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          flexShrink: 0,
                         }}
+                      />
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        title={node.name}
+                        sx={{ minWidth: 0, fontWeight: 'medium' }}
                       >
-                        <Chip
-                          label={node.type.toUpperCase()}
-                          size="small"
-                          sx={{
-                            height: 20,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            flexShrink: 0,
-                          }}
-                        />
-                        <Typography
-                          variant="body2"
-                          noWrap
-                          title={node.name}
-                          sx={{ minWidth: 0, fontWeight: 'medium' }}
-                        >
-                          {node.name}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          noWrap
-                          title={endpoint}
-                          sx={{ ml: 'auto', mr: 1, flexShrink: 0 }}
-                        >
-                          {endpoint}
-                        </Typography>
-                      </Box>
-
-                      <Stack
-                        direction="row"
-                        spacing={0.5}
-                        sx={{ flexShrink: 0 }}
+                        {node.name}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        noWrap
+                        title={endpoint}
+                        sx={{ ml: 'auto', mr: 1, flexShrink: 0 }}
                       >
-                        <Tooltip
-                          title={t(
-                            'home.components.nodes.actions.duplicateNode',
-                          )}
-                          arrow
-                        >
-                          <IconButton
-                            size="small"
-                            disabled={saving}
-                            onClick={() => openDuplicateDialog(node)}
-                          >
-                            <ContentCopyRounded fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('shared.actions.edit')} arrow>
-                          <IconButton
-                            size="small"
-                            disabled={saving}
-                            onClick={() => openEditDialog(node)}
-                          >
-                            <EditOutlined fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('shared.actions.delete')} arrow>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            disabled={saving}
-                            onClick={() => handleDeleteNode(node.name)}
-                          >
-                            <DeleteOutlined fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
+                        {endpoint}
+                      </Typography>
                     </Box>
-                  )
-                })
-              )}
-            </Box>
-          </Stack>
-        )}
-      </EnhancedCard>
+
+                    <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                      <Tooltip
+                        title={t('home.components.nodes.actions.duplicateNode')}
+                        arrow
+                      >
+                        <IconButton
+                          size="small"
+                          disabled={saving}
+                          onClick={() => openDuplicateDialog(node)}
+                        >
+                          <ContentCopyRounded fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={t('shared.actions.edit')} arrow>
+                        <IconButton
+                          size="small"
+                          disabled={saving}
+                          onClick={() => openEditDialog(node)}
+                        >
+                          <EditOutlined fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={t('shared.actions.delete')} arrow>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          disabled={saving}
+                          onClick={() => handleDeleteNode(node.name)}
+                        >
+                          <DeleteOutlined fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  </Box>
+                )
+              })
+            )}
+          </Box>
+        </Stack>
+      )}
 
       {dialogOpen && (
         <NodeFormDialog
@@ -475,6 +465,8 @@ export const HomeNodesCard = ({
           onSubmit={handleSubmitNode}
         />
       )}
-    </>
+    </BasePage>
   )
 }
+
+export default NodesPage
