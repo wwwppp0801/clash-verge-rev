@@ -162,7 +162,10 @@ mod windows {
 
     fn strip_windows_extended_prefix(raw: &str) -> String {
         let normalized = raw.replace('/', r"\");
-        if normalized.len() >= 8 && normalized[..8].eq_ignore_ascii_case(r"\\?\UNC\") {
+        if normalized
+            .get(..8)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(r"\\?\UNC\"))
+        {
             format!(r"\\{}", &normalized[8..])
         } else if let Some(rest) = normalized.strip_prefix(r"\\?\") {
             rest.to_owned()
